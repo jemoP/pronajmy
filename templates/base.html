@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Přehled{% endblock %} · Pronájmy</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/chart.umd.min.js' %}" defer></script>
+  <script src="{% static 'js/charts.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900" hx-boost="true" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <header class="bg-blue-900 text-white">
+    <nav class="mx-auto flex max-w-7xl items-center gap-x-5 px-4 py-2">
+      <a href="{% url 'core:home' %}" class="mr-auto py-2 text-lg font-bold">Pronájmy</a>
+      {% if user.is_authenticated %}
+        <div class="hidden items-center gap-x-5 lg:flex">
+          {% include "includes/nav_links.html" with cls="py-2 hover:underline" %}
+          <a href="{% url 'password_change' %}" class="py-2 text-blue-100 hover:underline" title="Změnit heslo">{{ user.username }}</a>
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="cursor-pointer py-2 text-blue-100 hover:underline">Odhlásit</button>
+          </form>
+        </div>
+        <details class="relative lg:hidden">
+          <summary class="flex min-h-12 min-w-12 cursor-pointer list-none items-center justify-center rounded-lg text-2xl hover:bg-blue-800" aria-label="Menu">☰</summary>
+          <div class="absolute right-0 z-20 mt-2 w-56 rounded-xl bg-white p-2 text-slate-900 shadow-lg">
+            {% include "includes/nav_links.html" with cls="block rounded-lg px-3 py-3 hover:bg-slate-100" %}
+            <a href="{% url 'password_change' %}" class="block rounded-lg border-t border-slate-200 px-3 py-3 hover:bg-slate-100">Změnit heslo ({{ user.username }})</a>
+            <form method="post" action="{% url 'logout' %}" class="border-t border-slate-200 pt-1">
+              {% csrf_token %}
+              <button type="submit" class="block w-full cursor-pointer rounded-lg px-3 py-3 text-left hover:bg-slate-100">Odhlásit</button>
+            </form>
+          </div>
+        </details>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6">
+    {% if messages %}
+      <ul class="mb-4 space-y-2">
+        {% for message in messages %}
+          <li class="{% if message.level_tag == 'error' %}notice-error{% elif message.level_tag == 'warning' %}notice-warning{% else %}notice-ok{% endif %}">{% if message.level_tag == 'warning' %}⚠ {% endif %}{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
