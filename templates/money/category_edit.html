@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Úprava účelu{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="mb-3 text-lg font-bold">Úprava účelu{% if category.code %} <span class="badge">výchozí</span>{% endif %}</h1>
+  <form method="post" action="{% url 'money:category_edit' category.id %}" class="space-y-4">
+    {% csrf_token %}
+    <div class="grid gap-4 sm:grid-cols-3">
+      <label class="field">Název
+        <input class="input" name="name" value="{{ values.name }}" required{% if errors.name %} aria-invalid="true"{% endif %}>
+        {% if errors.name %}<span class="error">{{ errors.name }}</span>{% endif %}
+      </label>
+      <label class="field">Druh
+        <select class="input" name="kind"{% if errors.kind %} aria-invalid="true"{% endif %}>
+          {% for value, label in CATEGORY_KINDS %}<option value="{{ value }}"{% if values.kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {% if errors.kind %}<span class="error">{{ errors.kind }}</span>{% endif %}
+      </label>
+      <label class="field">Pořadí <input class="input" name="sort" type="number" value="{{ values.sort }}"></label>
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="active"{% if values.active == 'on' %} checked{% endif %}> Aktivní (nabízet při zadávání pohybů)</label>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary">Uložit</button>
+      <a href="{% url 'money:categories' %}" class="btn btn-secondary">Zpět</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

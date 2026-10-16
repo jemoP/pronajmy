@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 16. 10. 2026 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 16. 10. 2026, ZM-002 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -54,12 +54,17 @@ zobrazení v Europe/Prague. Názvy tabulek odpovídají tabulce níže (`Meta.db
 | Tabulka | Klíčové sloupce | Poznámka |
 | --- | --- | --- |
 | `account` | id, name, kind (BANK / CASH), bank_code, account_number, opening_balance_cents, active | Účet pronájmů; zůstatek = počáteční stav + příchozí − odchozí pohyby |
-| `category` | id, name, kind (INCOME / EXPENSE / NEUTRAL), sort, active | Účel pohybu |
+| `category` | id, name, kind (INCOME / EXPENSE / NEUTRAL), code, sort, active | Účel pohybu; `code` = interní označení výchozího účelu (unikátní, u účelů přidaných uživatelem prázdné) |
 | `entry` | id, date, kind (INCOME / EXPENSE / TRANSFER / WITHDRAWAL / DEPOSIT), amount_cents (> 0), account_id, to_account_id, category_id, property_id, note, created_at, updated_at | Pohyb peněz |
 
 Výchozí účely (datová migrace): příjmy Nájemné, Zálohy na služby, Vyúčtování služeb, Ostatní
 příjmy; náklady Opravy a údržba, Revize, Pojištění, Daň z nemovitosti, Fond oprav / SVJ, Služby,
 Správa a inzerce, Poplatky, Ostatní náklady; neutrální Jistota.
+
+Výchozí účely mají interní `code` (RENT, SERVICES, SETTLEMENT, OTHER_INCOME, REPAIRS,
+INSPECTION, INSURANCE, PROPERTY_TAX, HOA_FUND, UTILITIES, MANAGEMENT, FEES, OTHER_EXPENSE,
+DEPOSIT), podle kterého je aplikace najde i po přejmenování. Účel s kódem jde přejmenovat,
+přeřadit a deaktivovat, ale ne smazat ani změnit jeho druh.
 
 Pravidla pohybů:
 
@@ -198,7 +203,7 @@ v kontejneru) → commit → kontrola uživatelem → merge.
 | Etapa | Obsah | Hotovo, když |
 | --- | --- | --- |
 | 0 Kostra | Repo, uv, Dockerfile, compose.dev.yml (port 8002), Django + přihlášení, Tailwind, převzaté `core`, CLAUDE.md, docs | Testy v kontejneru projdou, aplikace běží na :8002, bez přihlášení není přístupná žádná stránka kromě přihlášení a /health |
-| 1 Peníze | P01–P03, export pohybů | Příjem zvýší a výdaj sníží zůstatek účtu; výběr do domácnosti sníží zůstatek, ale nezmění výsledek; převod mezi účty nezmění součet zůstatků |
+| 1 Peníze | P01–P03, export pohybů; byty (`property`) jen seznam a formulář (ZM-002) | Příjem zvýší a výdaj sníží zůstatek účtu; výběr do domácnosti sníží zůstatek, ale nezmění výsledek; převod mezi účty nezmění součet zůstatků |
 | 2 Smlouvy a platby | P04–P07 (převod kódu etapy 8 na `entry`) | Smlouva od 1. 1. 2026 (nájem 15 000 Kč + zálohy 3 000 Kč, splatnost 5. dne) s dodatkem od 1. 7. 2026 (nájem 16 000 Kč) a platbami 18 000 Kč za leden–září ukáže k 16. 10. 2026 dluh 22 000 Kč po splatnosti; platby se rozdělí na nájemné 138 000 Kč a zálohy 24 000 Kč |
 | 3 Údržba a přílohy | P08–P10, přílohy | Revize kotle provedená 1. 11. 2025 s intervalem 12 měsíců je k 16. 10. 2026 v upozorněních „za 16 dní“; oprava zaplacená z účtu sníží výsledek bytu; příloha s neplatným obsahem se odmítne |
 | 4 Přehledy | P11–P14 | Výkaz sedí s pohyby (jistota a výběry se nepočítají); paušál respektuje strop; export neobsahuje kontakty |

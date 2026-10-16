@@ -1,0 +1,4 @@
+{# Odkazy na export; hx-boost vypnutý, aby htmx soubor nevkládal do stránky. #}
+<span class="text-sm muted">Export:</span>
+<a class="link text-sm" hx-boost="false" href="{% url url_name 'csv' %}?{{ request.GET.urlencode }}">CSV</a>
+<a class="link text-sm" hx-boost="false" href="{% url url_name 'xlsx' %}?{{ request.GET.urlencode }}">XLSX</a>

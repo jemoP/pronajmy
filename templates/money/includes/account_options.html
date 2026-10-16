@@ -1,0 +1,2 @@
+<option value="">{{ empty_label }}</option>
+{% for a in accounts %}<option value="{{ a.id }}"{% if selected == a.id|stringformat:"s" %} selected{% endif %}>{{ a.name }}{% if not a.active %} (neaktivní){% endif %}</option>{% endfor %}

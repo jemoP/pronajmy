@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-002 – Interní kód účelu, byty už v etapě 1
+- **Datum:** 2026-10-16
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** pravidla (byt volitelný u ostatních příjmů / nákladů, rozdělení platby na nájemné, zálohy a jistotu, výdaj opravy a revize) potřebují najít výchozí účel spolehlivě i po přejmenování. Pohyb má povinný byt už v etapě 1, byty ale patřily až do etapy 2.
+- **Popis:** účel má interní `code`; výchozí účely ho dostanou v datové migraci, účel s kódem nejde smazat ani změnit jeho druh. Model bytu a jeho jednoduchá správa (seznam, formulář) se přesouvají do etapy 1; karta bytu zůstává v etapě 2.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Datový model – Peníze, Etapy a akceptace).
+- **Dopad na data:** nový sloupec `category.code` (unikátní, NULL u vlastních účelů).
+- **Implementováno:** 2026-10-16, větev feature/etapa-1 (etapa 1)
+
 ## ZM-001 – Založení projektu
 - **Datum:** 2026-10-16
 - **Stav:** schváleno

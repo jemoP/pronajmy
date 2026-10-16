@@ -5,6 +5,8 @@ from urllib.parse import urlencode
 
 from django import template
 from django.http import HttpRequest
+from django.utils.html import format_html
+from django.utils.safestring import SafeString
 
 from apps.core import formatting
 
@@ -48,3 +50,14 @@ def url_with(context: dict[str, Any], **params: Any) -> str:
         else:
             query[key] = str(value)
     return f"{request.path}?{urlencode(query)}" if query else request.path
+
+
+@register.simple_tag(takes_context=True)
+def sort_link(context: dict[str, Any], label: str, key: str) -> SafeString:
+    """Odkaz pro řazení seznamu podle `filter.sort`; opakované kliknutí obrátí směr."""
+    current: str = context["filter"].sort
+    active = current.lstrip("-") == key
+    target = key if current == f"-{key}" else f"-{key}"
+    url = url_with(context, sort=target, page=None, saved=None, copy=None, deleted=None)
+    arrow = (" ▼" if current.startswith("-") else " ▲") if active else ""
+    return format_html('<a class="link" href="{}">{}{}</a>', url, label, arrow)

@@ -1,0 +1,48 @@
+{# Pole pohybu – rychlé zadání i úprava. Pole podle druhu přepíná static/js/app.js. #}
+<div class="grid gap-4 sm:grid-cols-3">
+  <label class="field">Datum
+    <input class="input" type="date" name="date" value="{{ values.date }}" required{% if errors.date %} aria-invalid="true"{% endif %}>
+    {% if errors.date %}<span class="error">{{ errors.date }}</span>{% endif %}
+  </label>
+  <label class="field">Druh
+    <select class="input" name="kind"{% if errors.kind %} aria-invalid="true"{% endif %}>
+      {% for value, label in ENTRY_KINDS %}<option value="{{ value }}"{% if values.kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {% if errors.kind %}<span class="error">{{ errors.kind }}</span>{% endif %}
+  </label>
+  <label class="field">Částka (Kč)
+    <input class="input" type="text" name="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" value="{{ values.amount }}" required{% if errors.amount %} aria-invalid="true"{% endif %}>
+    {% if errors.amount %}<span class="error">{{ errors.amount }}</span>{% endif %}
+  </label>
+</div>
+<div class="grid gap-4 sm:grid-cols-3">
+  <label class="field"><span data-label-transfer="Z účtu">Účet</span>
+    <select class="input" name="account_id"{% if errors.account_id %} aria-invalid="true"{% endif %}>
+      {% include "money/includes/account_options.html" with accounts=choices.accounts selected=values.account_id empty_label="— vyber účet —" %}
+    </select>
+    {% if errors.account_id %}<span class="error">{{ errors.account_id }}</span>{% endif %}
+  </label>
+  <label class="field" data-kinds="TRANSFER">Na účet
+    <select class="input" name="to_account_id"{% if errors.to_account_id %} aria-invalid="true"{% endif %}>
+      {% include "money/includes/account_options.html" with accounts=choices.accounts selected=values.to_account_id empty_label="— vyber účet —" %}
+    </select>
+    {% if errors.to_account_id %}<span class="error">{{ errors.to_account_id }}</span>{% endif %}
+  </label>
+  <label class="field" data-kinds="INCOME EXPENSE">Účel
+    <select class="input" name="category_id"{% if errors.category_id %} aria-invalid="true"{% endif %}>
+      <option value="">— vyber účel —</option>
+      {% for c in choices.categories %}<option value="{{ c.id }}" data-kind="{{ c.kind }}"{% if values.category_id == c.id|stringformat:"s" %} selected{% endif %}>{{ c.name }}{% if not c.active %} (neaktivní){% endif %}</option>{% endfor %}
+    </select>
+    {% if errors.category_id %}<span class="error">{{ errors.category_id }}</span>{% endif %}
+  </label>
+  <label class="field" data-kinds="INCOME EXPENSE">Byt
+    <select class="input" name="property_id"{% if errors.property_id %} aria-invalid="true"{% endif %}>
+      <option value="">— bez bytu —</option>
+      {% for p in choices.properties %}<option value="{{ p.id }}"{% if values.property_id == p.id|stringformat:"s" %} selected{% endif %}>{{ p.name }}{% if not p.active %} (neaktivní){% endif %}</option>{% endfor %}
+    </select>
+    {% if errors.property_id %}<span class="error">{{ errors.property_id }}</span>{% endif %}
+  </label>
+</div>
+<label class="field">Poznámka
+  <input class="input" type="text" name="note" value="{{ values.note|default:'' }}" maxlength="500" autocomplete="off">
+</label>
