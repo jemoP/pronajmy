@@ -1,0 +1,21 @@
+{# Jedno pole formuláře ve stylu aplikace (textarea a zaškrtávátka přes celou šířku). #}
+{% if field.widget_type == 'checkbox' %}
+<div class="sm:col-span-3">
+  <label class="flex items-center gap-2 text-sm">{{ field }} {{ field.label }}</label>
+  {% if field.errors %}<span class="error">{{ field.errors.0 }}</span>{% endif %}
+</div>
+{% elif field.widget_type == 'checkboxselectmultiple' %}
+<fieldset class="field sm:col-span-3">
+  <legend class="mb-1">{{ field.label }}</legend>
+  <div class="flex flex-wrap gap-x-5 gap-y-1">
+    {% for box in field %}<label class="flex items-center gap-2 font-normal">{{ box.tag }} {{ box.choice_label }}</label>{% empty %}<span class="font-normal muted">Žádní další nájemníci.</span>{% endfor %}
+  </div>
+  {% if field.errors %}<span class="error">{{ field.errors.0 }}</span>{% endif %}
+</fieldset>
+{% else %}
+<label class="field{% if field.widget_type == 'textarea' %} sm:col-span-3{% endif %}">{{ field.label }}
+  {{ field }}
+  {% if field.help_text %}<span class="text-xs font-normal muted">{{ field.help_text }}</span>{% endif %}
+  {% if field.errors %}<span class="error">{{ field.errors.0 }}</span>{% endif %}
+</label>
+{% endif %}

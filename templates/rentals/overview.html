@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Přehled{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-bold">Přehled pronájmů</h1>
+
+{% if debtors %}
+<section class="mb-6">
+  <h2 class="mb-2 text-xl font-semibold"><span aria-hidden="true" style="color: var(--status-over)">✕</span> Po splatnosti celkem {{ overdue_total|czk }}</h2>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Smlouva</th><th>Nájemníci</th><th class="amount">Po splatnosti</th><th>Nejstarší od</th><th class="amount">Saldo</th></tr></thead>
+      <tbody>
+        {% for d in debtors %}
+        <tr>
+          <td><a class="link" href="{% url 'rentals:lease' d.lease.pk %}">{{ d.lease.property.name }}</a>{% if d.lease.status == 'ENDED' %} <span class="badge">ukončená</span>{% endif %}</td>
+          <td>{{ d.tenants }}</td>
+          <td class="amount expense">{{ d.balance.overdue|czk }}</td>
+          <td class="whitespace-nowrap">{{ d.balance.oldest_overdue|cz_date }}</td>
+          <td class="amount">{{ d.balance.balance|czk }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<p class="notice-ok mb-6"><span aria-hidden="true">✓</span> Nikdo nedluží po splatnosti.</p>
+{% endif %}
+
+<section class="mb-6">
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-xl font-semibold">Byty</h2>
+    <a href="{% url 'rentals:property_new' %}" class="btn btn-secondary">Nový byt</a>
+  </div>
+  {% if rows %}
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Byt</th><th>Nájemníci</th><th class="amount">Nájem + zálohy</th><th class="hidden sm:table-cell">Smlouva do</th><th class="amount">Saldo</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><a class="link" href="{% url 'rentals:property' r.property.pk %}">{{ r.property.name }}</a>{% if r.property.layout %} <span class="text-sm muted">{{ r.property.layout }}</span>{% endif %}</td>
+          <td>{% if r.lease %}<a class="link" href="{% url 'rentals:lease' r.lease.pk %}">{{ r.tenants|default:"bez nájemníka" }}</a>{% if r.lease.start_date > today %} <span class="badge">od {{ r.lease.start_date|cz_date }}</span>{% endif %}{% else %}<span class="muted">volný</span>{% endif %}</td>
+          <td class="amount">{% if r.terms %}{{ r.terms.total_cents|czk }}{% endif %}</td>
+          <td class="hidden whitespace-nowrap sm:table-cell">{% if r.lease %}{% if r.end %}{{ r.end|cz_date }}{% else %}neurčitá{% endif %}{% endif %}</td>
+          <td class="amount whitespace-nowrap">{% if r.balance %}{% include "rentals/includes/balance_status.html" with balance=r.balance %}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="card">Zatím žádné byty. <a class="link" href="{% url 'rentals:property_new' %}">Založ první byt</a>.</p>
+  {% endif %}
+</section>
+
+<h2 class="mb-2 text-xl font-semibold">Výsledek {{ today.year }}</h2>
+<div class="mb-2 grid gap-3 sm:grid-cols-3">
+  <a class="tile" href="{% url 'money:entries' %}?kind=INCOME&date_from={{ today.year }}-01-01&date_to={{ today.year }}-12-31"><span class="text-sm muted">Příjmy</span><span class="tile-value income">{{ result.income_cents|czk }}</span></a>
+  <a class="tile" href="{% url 'money:entries' %}?kind=EXPENSE&date_from={{ today.year }}-01-01&date_to={{ today.year }}-12-31"><span class="text-sm muted">Náklady</span><span class="tile-value expense">{{ result.expense_cents|czk }}</span></a>
+  <div class="tile"><span class="text-sm muted">Zisk</span><span class="tile-value {% if result.profit_cents < 0 %}expense{% endif %}">{{ result.profit_cents|czk }}</span></div>
+</div>
+<p class="mb-6 text-sm muted">Bez jistot, převodů, výběrů a vkladů{% if planned_count %} a bez {{ planned_count }} plánovaných pohybů{% endif %}.</p>
+
+<h2 class="mb-2 text-xl font-semibold">Zůstatky účtů</h2>
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {% for row in accounts %}
+  <a class="tile" href="{% url 'money:entries' %}?account={{ row.account.id }}"><span class="text-sm muted">{{ row.account.name }}</span><span class="tile-value{% if row.balance_cents < 0 %} expense{% endif %}">{{ row.balance_cents|czk }}</span></a>
+  {% empty %}
+  <p class="card sm:col-span-2">Zatím žádné účty. <a class="link" href="{% url 'money:account_new' %}">Založ první účet</a>.</p>
+  {% endfor %}
+  {% if accounts|length > 1 %}
+  <div class="tile"><span class="text-sm muted">Celkem</span><span class="tile-value">{{ total|czk }}</span></div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,4 @@
+{% if form.non_field_errors %}<p class="notice-error">{{ form.non_field_errors.0 }}</p>{% endif %}
+<div class="grid gap-4 sm:grid-cols-3">
+  {% for field in form %}{% include "rentals/includes/field.html" %}{% endfor %}
+</div>

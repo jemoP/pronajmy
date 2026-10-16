@@ -14,7 +14,7 @@
     <tbody>
       {% for p, used in rows %}
       <tr class="{% if not p.active %}text-slate-500{% endif %}">
-        <td>{{ p.name }}{% if not p.active %} <span class="badge">neaktivní</span>{% endif %}</td>
+        <td><a class="link" href="{% url 'rentals:property' p.id %}">{{ p.name }}</a>{% if not p.active %} <span class="badge">neaktivní</span>{% endif %}</td>
         <td>{{ p.address }}{% if p.unit %}, č. {{ p.unit }}{% endif %}</td>
         <td>{{ p.layout }}</td>
         <td class="amount">{% if p.floor_area %}{{ p.floor_area|floatformat:"-1" }} m²{% endif %}</td>

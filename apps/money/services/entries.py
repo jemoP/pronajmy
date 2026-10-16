@@ -7,6 +7,7 @@ from math import ceil
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q, QuerySet, Sum
 
+from apps.core.formatting import format_czk
 from apps.money.models import (
     CATEGORIZED_KINDS,
     PROPERTY_OPTIONAL,
@@ -108,8 +109,13 @@ def result_of(qs: QuerySet[Entry], today: date) -> Result:
     return Result(totals.get(EntryKind.INCOME, 0), totals.get(EntryKind.EXPENSE, 0))
 
 
-def result_for(date_from: date, date_to: date, today: date) -> Result:
-    return result_of(Entry.objects.filter(date__gte=date_from, date__lte=date_to), today)
+def result_for(
+    date_from: date, date_to: date, today: date, property_id: int | None = None
+) -> Result:
+    qs = Entry.objects.filter(date__gte=date_from, date__lte=date_to)
+    if property_id is not None:
+        qs = qs.filter(property_id=property_id)
+    return result_of(qs, today)
 
 
 def list_entries(f: EntryFilter, today: date) -> EntryPage:
@@ -210,6 +216,25 @@ def validate(data: EntryInput, original: Entry | None = None) -> dict[str, str]:
             errors["property_id"] = "Byt neexistuje."
         elif not prop.active and changed("property_id"):
             errors["property_id"] = f"Byt „{prop.name}“ je neaktivní."
+
+    if original is not None:
+        errors.update(_linked_errors(data, original))
+    return errors
+
+
+def _linked_errors(data: EntryInput, original: Entry) -> dict[str, str]:
+    """Pohyb přiřazený ke smlouvě nesmí změnit druh ani byt a jeho částka nesmí klesnout
+    pod přiřazenou část – jinak by přestalo sedět saldo smlouvy."""
+    linked = original.rent_payments.aggregate(total=Sum("amount_cents"))["total"] or 0
+    if not linked:
+        return {}
+    errors: dict[str, str] = {}
+    if data.kind != original.kind:
+        errors["kind"] = "Pohyb je přiřazený ke smlouvě – druh nejde změnit."
+    if data.property_id != original.property_id:
+        errors["property_id"] = "Pohyb je přiřazený ke smlouvě – byt nejde změnit."
+    if data.amount_cents < linked:
+        errors["amount"] = f"Ke smlouvě je přiřazeno {format_czk(linked)} – částka nesmí být nižší."
     return errors
 
 
