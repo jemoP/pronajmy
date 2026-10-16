@@ -10,5 +10,7 @@ urlpatterns = [
         "password/done/", auth_views.PasswordChangeDoneView.as_view(), name="password_change_done"
     ),
     path("admin/", admin.site.urls),
+    path("", include("apps.money.urls")),
+    path("", include("apps.rentals.urls")),
     path("", include("apps.core.urls")),
 ]

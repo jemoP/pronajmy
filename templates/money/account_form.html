@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{% if account %}Úprava účtu{% else %}Nový účet{% endif %}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="mb-3 text-lg font-bold">{% if account %}Úprava účtu{% else %}Nový účet{% endif %}</h1>
+  <form method="post" action="{% if account %}{% url 'money:account_edit' account.id %}{% else %}{% url 'money:account_new' %}{% endif %}" class="space-y-4">
+    {% csrf_token %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="field">Název
+        <input class="input" name="name" value="{{ values.name|default:'' }}" required{% if errors.name %} aria-invalid="true"{% endif %}>
+        {% if errors.name %}<span class="error">{{ errors.name }}</span>{% endif %}
+      </label>
+      <label class="field">Druh
+        <select class="input" name="kind">
+          {% for value, label in ACCOUNT_KINDS %}<option value="{{ value }}"{% if values.kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {% if errors.kind %}<span class="error">{{ errors.kind }}</span>{% endif %}
+      </label>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <label class="field">Číslo účtu
+        <input class="input" name="account_number" value="" autocomplete="off"
+               placeholder="{% if account and account.account_number %}{{ account.account_number|mask }} – vyplň jen při změně{% else %}např. 19-1234567890{% endif %}">
+      </label>
+      <label class="field">Kód banky <input class="input" name="bank_code" value="{{ values.bank_code|default:'' }}" maxlength="10"></label>
+      <label class="field">Počáteční stav (Kč)
+        <input class="input" name="opening" inputmode="decimal" value="{{ values.opening }}"{% if errors.opening %} aria-invalid="true"{% endif %}>
+        {% if errors.opening %}<span class="error">{{ errors.opening }}</span>{% endif %}
+      </label>
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="active"{% if values.active == 'on' %} checked{% endif %}> Aktivní (nabízet při zadávání pohybů)</label>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary">Uložit</button>
+      <a href="{% url 'money:accounts' %}" class="btn btn-secondary">Zpět</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

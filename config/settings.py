@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.postgres",
     "apps.core",
+    "apps.money",
+    "apps.rentals",
 ]
 
 MIDDLEWARE = [
@@ -57,6 +59,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.money.context_processors.choices",
             ],
             "builtins": ["apps.core.templatetags.ui", "django.templatetags.static"],
         },

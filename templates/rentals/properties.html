@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Byty{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-bold">Byty</h1>
+<form method="get" action="{% url 'rentals:properties' %}" class="mb-4 flex flex-wrap items-end gap-3">
+  <label class="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="inactive" value="1"{% if include_inactive %} checked{% endif %}> i neaktivní byty</label>
+  <button type="submit" class="btn btn-secondary">Zobrazit</button>
+  <a href="{% url 'rentals:property_new' %}" class="btn btn-primary">Nový byt</a>
+</form>
+
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th>Byt</th><th>Adresa</th><th>Dispozice</th><th class="amount">Plocha</th><th>Účet</th><th class="amount">Pohybů</th><th></th></tr></thead>
+    <tbody>
+      {% for p, used in rows %}
+      <tr class="{% if not p.active %}text-slate-500{% endif %}">
+        <td>{{ p.name }}{% if not p.active %} <span class="badge">neaktivní</span>{% endif %}</td>
+        <td>{{ p.address }}{% if p.unit %}, č. {{ p.unit }}{% endif %}</td>
+        <td>{{ p.layout }}</td>
+        <td class="amount">{% if p.floor_area %}{{ p.floor_area|floatformat:"-1" }} m²{% endif %}</td>
+        <td>{{ p.account.name|default:"" }}</td>
+        <td class="amount"><a class="link" href="{% url 'money:entries' %}?property={{ p.id }}">{{ used }}</a></td>
+        <td class="whitespace-nowrap text-right"><a class="link" href="{% url 'rentals:property_edit' p.id %}">Upravit</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">Zatím žádné byty.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

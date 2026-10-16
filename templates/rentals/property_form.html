@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{% if property %}Úprava bytu{% else %}Nový byt{% endif %}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="mb-3 text-lg font-bold">{% if property %}Úprava bytu{% else %}Nový byt{% endif %}</h1>
+  <form method="post" action="{% if property %}{% url 'rentals:property_edit' property.id %}{% else %}{% url 'rentals:property_new' %}{% endif %}" class="space-y-4">
+    {% csrf_token %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="field">Název
+        <input class="input" name="name" value="{{ values.name|default:'' }}" required{% if errors.name %} aria-invalid="true"{% endif %}>
+        {% if errors.name %}<span class="error">{{ errors.name }}</span>{% endif %}
+      </label>
+      <label class="field">Adresa <input class="input" name="address" value="{{ values.address|default:'' }}" maxlength="300"></label>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-4">
+      <label class="field">Číslo jednotky <input class="input" name="unit" value="{{ values.unit|default:'' }}" maxlength="50"></label>
+      <label class="field">Dispozice <input class="input" name="layout" value="{{ values.layout|default:'' }}" maxlength="20" placeholder="např. 2+kk"></label>
+      <label class="field">Plocha (m²)
+        <input class="input" name="floor_area" inputmode="decimal" value="{{ values.floor_area|default:'' }}"{% if errors.floor_area %} aria-invalid="true"{% endif %}>
+        {% if errors.floor_area %}<span class="error">{{ errors.floor_area }}</span>{% endif %}
+      </label>
+      <label class="field">Účet pro nájem
+        <select class="input" name="account_id"{% if errors.account_id %} aria-invalid="true"{% endif %}>
+          {% include "money/includes/account_options.html" with accounts=accounts selected=values.account_id empty_label="— bez účtu —" %}
+        </select>
+        {% if errors.account_id %}<span class="error">{{ errors.account_id }}</span>{% endif %}
+      </label>
+    </div>
+    <label class="field">Poznámka <textarea class="input" name="note" rows="3">{{ values.note|default:'' }}</textarea></label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="active"{% if values.active == 'on' %} checked{% endif %}> Aktivní (nabízet při zadávání pohybů)</label>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary">Uložit</button>
+      <a href="{% url 'rentals:properties' %}" class="btn btn-secondary">Zpět</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

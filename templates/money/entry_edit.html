@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Úprava pohybu{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="mb-3 text-lg font-bold">Úprava pohybu</h1>
+  {% if errors %}<p class="notice-error mb-3">Změny nebyly uloženy – oprav zvýrazněná pole.</p>{% endif %}
+  <form method="post" action="{% url 'money:entry_edit' entry.id %}?back={{ back|urlencode:'' }}" class="entry-form space-y-4">
+    {% csrf_token %}
+    {% include "money/includes/entry_fields.html" %}
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary">Uložit změny</button>
+      <a href="{{ back }}" class="btn btn-secondary">Zpět</a>
+      <a href="{% url 'money:entries' %}?copy={{ entry.id }}" class="btn btn-secondary">Kopírovat</a>
+    </div>
+  </form>
+  <form method="post" action="{% url 'money:entry_delete' entry.id %}?back={{ back|urlencode:'' }}" class="mt-6 border-t border-slate-200 pt-4" hx-confirm="Opravdu smazat tento pohyb?">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Smazat pohyb</button>
+  </form>
+</section>
+{% endblock %}
