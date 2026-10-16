@@ -1,0 +1,11 @@
+.env
+.env.prod
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+media/
+backups/
+staticfiles/
+static/css/app.css
