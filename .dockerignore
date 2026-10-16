@@ -1,0 +1,12 @@
+.git/
+.venv/
+.env
+.env.prod
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+static/css/app.css
+staticfiles/
+media/
+backups/

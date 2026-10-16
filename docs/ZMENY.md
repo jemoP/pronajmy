@@ -34,4 +34,4 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 - **Popis:** výchozí zadání `docs/ZADANI-PRONAJMY.md` a `CLAUDE.md` převzaté z HomeFinance (commit 0a9ae32). Rozhodnutí z HomeFinance ZM-012: data naprosto oddělená, historie účelů 59 a 62 se neimportuje (historické smlouvy se zadají ručně), zůstatek pronájmů se do majetku HomeFinance nepřenáší.
 - **Dotčené kapitoly:** celé zadání (výchozí verze).
 - **Dopad na data:** nová databáze.
-- **Implementováno:** –
+- **Implementováno:** etapa 0 (kostra) 2026-10-16, větev feature/etapa-0; další etapy průběžně

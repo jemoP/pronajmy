@@ -1,0 +1,57 @@
+[project]
+name = "pronajmy"
+version = "0.1.0"
+description = "Evidence pronajímaných bytů"
+readme = "docs/ZADANI-PRONAJMY.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<5.3",
+    "django-environ>=0.11",
+    "django-stubs-ext>=6.1.2",
+    "gunicorn>=23",
+    "openpyxl>=3.1.5",
+    "psycopg[binary]>=3.2",
+    "whitenoise>=6.7",
+]
+
+[dependency-groups]
+dev = [
+    "django-stubs[compatible-mypy]>=5.1",
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "ruff>=0.6",
+    "types-openpyxl>=3.1.5.20260827",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "DJ"]
+# Česká typografie (pomlčka –) v textech UI a komentářích je záměrná.
+ignore = ["RUF001", "RUF002", "RUF003", "RUF012"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["mypy_django_plugin.main"]
+exclude = ["/migrations/"]
+
+[[tool.mypy.overrides]]
+module = ["environ.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py"]
+testpaths = ["apps"]
+addopts = "-q --strict-markers"
