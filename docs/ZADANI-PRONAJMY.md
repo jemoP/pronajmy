@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 17. 10. 2026, ZM-004 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 17. 10. 2026, ZM-005 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -94,7 +94,7 @@ Pravidla pohybů:
 | `lease_tenant` | lease_id, tenant_id, role (MAIN / CO_TENANT) | Nájemce a spolunájemci; dvojice unikátní |
 | `lease_amendment` | id, lease_id, number, signed_date, effective_date, description, rent_cents, services_cents, end_date (NULL = beze změny) | Dodatek |
 | `rent_charge` | id, lease_id, kind (RENT / SERVICES / SETTLEMENT / DEPOSIT / OTHER), period (1. den měsíce), due_date, amount_cents (se znaménkem), manual, note | Předpis; RENT a SERVICES nejvýš jednou na smlouvu a měsíc a vždy s `period` |
-| `rent_payment` | id, lease_id, entry_id (NULL jen u započtení), kind (PAYMENT / DEPOSIT / REFUND / DEPOSIT_RETURN / DEPOSIT_OFFSET), amount_cents (> 0), date (jen u započtení), note | Vazba pohybu na smlouvu; smazání pohybu vazbu odstraní |
+| `rent_payment` | id, lease_id, entry_id (NULL jen u započtení), charge_id (NULL = bez vazby na předpis), kind (PAYMENT / DEPOSIT / REFUND / DEPOSIT_RETURN / DEPOSIT_OFFSET), amount_cents (> 0), date (jen u započtení), note | Vazba pohybu na smlouvu, případně na konkrétní předpis; smazání pohybu vazbu odstraní, smazání předpisu jen zruší vazbu na předpis |
 | `communication` | id, property_id, lease_id, tenant_id (aspoň jedno), occurred_at, channel (PHONE / EMAIL / SMS / IN_PERSON / LETTER / OTHER), direction (IN / OUT), subject, text, follow_up_date, follow_up_done | Deník komunikace |
 | `repair` | id, property_id, lease_id, reported_date, reported_by, title, description, status (REPORTED / ORDERED / DONE / CANCELLED), contractor, done_date, cost_cents, paid_by (OWNER / TENANT / INSURANCE), entry_id | Oprava / závada |
 | `inspection_type` | id, name, interval_months, remind_days (výchozí 30), active, note | Druh revize |
@@ -122,15 +122,21 @@ ověření vodoměrů 60.
   Sleduje se mimo saldo: přijato (DEPOSIT) − vráceno (DEPOSIT_RETURN, výdaj) − započteno
   (DEPOSIT_OFFSET bez pohybu, sníží dluh). Vrátit či započíst jde nejvýš drženou jistotu.
 - **Saldo** = předpisy bez DEPOSIT − (platby PAYMENT + započtení − vrácené přeplatky REFUND).
-  Počítají se jen platby od `charges_from`. Platby a záporné předpisy (přeplatek, sleva) kryjí
-  kladné předpisy od nejstarší splatnosti (FIFO); po splatnosti je nekrytá část předpisu se
-  splatností před dneškem.
+  Počítají se jen platby od `charges_from`. Platba s vazbou na předpis (`charge_id`) kryje
+  nejdřív svůj předpis, přebytek jde do FIFO. Ostatní platby a záporné předpisy (přeplatek,
+  sleva) kryjí zbylé kladné předpisy od nejstarší splatnosti (FIFO); po splatnosti je nekrytá
+  část předpisu se splatností před dneškem.
 - **Zápis platby** v aplikaci vytvoří příjmy na účet smlouvy rozdělené podle předpisů, které
   platba kryje (Nájemné, Zálohy na služby, Vyúčtování služeb; přeplatek jako Nájemné), a zvlášť
   příjem s účelem Jistota. Vrácení přeplatku je EXPENSE s účelem Vyúčtování služeb (sníží
   příjmy), vrácení jistoty EXPENSE s účelem Jistota. Existující příjem jde ke smlouvě přiřadit celý nebo po částech;
   aplikace navrhne nepřiřazené příjmy bytu nebo na účet smlouvy (45 dní před začátkem až
   45 dní po konci nájmu), nejbližší měsíční platbě nahoře.
+- **Platba z předpisu** (ZM-005): u otevřeného předpisu jde jedním tlačítkem zapsat zaplacení,
+  případně označit více předpisů a zapsat je dávkově. Z každého předpisu vznikne samostatný příjem
+  na jeho nezaplacenou část (účel podle druhu předpisu, u jistoty Jistota) s vazbou na předpis.
+  Datum = splatnost předpisu, nejpozději dnes (nebo jedno zvolené datum), ne před `charges_from`.
+  Záporné a zaplacené předpisy se nenabízí; dávka se zapíše celá, nebo vůbec.
 - **Ukončení smlouvy** s nevyrovnaným saldem nebo drženou jistotou jen s výslovným potvrzením.
   Smazat jde jen návrh smlouvy.
 - **Opravy a revize:** s náklady, zvoleným účtem a (u oprav) platí-li pronajímatel vznikne
@@ -152,7 +158,7 @@ ověření vodoměrů 60.
 | P03 | Peníze | Číselník účelů (druh, pořadí, aktivní) | Musí |
 | P04 | Byty | Byty a nájemníci; karta bytu s aktuální smlouvou, saldem, opravami, revizemi a komunikací | Musí |
 | P05 | Smlouvy | Smlouvy s více nájemníky, doba určitá / neurčitá, dodatky, historie podmínek, ukončení, historické smlouvy se „sledovat saldo od“ | Musí |
-| P06 | Platby | Předpisy, zápis platby, přiřazení pohybu s návrhem, ruční předpisy, saldo, dlužníci | Musí |
+| P06 | Platby | Předpisy, zápis platby, platba z předpisu jednotlivě i dávkově, přiřazení pohybu s návrhem, ruční předpisy, saldo, dlužníci | Musí |
 | P07 | Platby | Jistota: přijetí, vrácení, započtení na dluh | Musí |
 | P08 | Komunikace | Deník kontaktů s termínem vyřízení a přílohami | Má |
 | P09 | Opravy | Stav, dodavatel, náklady, kdo platí, výdaj, přílohy | Musí |

@@ -232,6 +232,10 @@ class RentPayment(models.Model):
     entry = models.ForeignKey(
         Entry, models.CASCADE, null=True, blank=True, related_name="rent_payments"
     )
+    # Platba konkrétního předpisu (ZM-005) – kryje nejdřív jeho; bez vazby jde do FIFO.
+    charge = models.ForeignKey(
+        RentCharge, models.SET_NULL, null=True, blank=True, related_name="payments"
+    )
     kind = models.CharField("druh", max_length=15, choices=PaymentKind.choices)
     amount_cents = models.BigIntegerField("částka (haléře)")
     date = models.DateField("datum", null=True, blank=True)

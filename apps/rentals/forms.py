@@ -269,6 +269,30 @@ class PayOutForm(StyledForm):
         self.fields["account"].queryset = account_queryset(account)  # type: ignore[attr-defined]
 
 
+class ChargePaymentForm(StyledForm):
+    """Platba z předpisů (ZM-005); označené předpisy přichází zvlášť (charges / single)."""
+
+    date_mode = forms.ChoiceField(
+        choices=[("due", "podle splatnosti"), ("day", "jedno datum")], initial="due"
+    )
+    day = forms.DateField(label="Datum", required=False, widget=DateInput())
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.none(), label="Na účet", error_messages={"required": "Vyber účet."}
+    )
+    note = forms.CharField(label="Poznámka", required=False, max_length=200)
+
+    def __init__(self, *args: Any, account: Account | None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["account"].queryset = account_queryset(account)  # type: ignore[attr-defined]
+
+    def clean(self) -> dict[str, Any]:
+        super().clean()
+        data = self.cleaned_data
+        if data.get("date_mode") == "day" and not data.get("day") and "day" not in self.errors:
+            self.add_error("day", "Zadej datum platby.")
+        return data
+
+
 class OffsetForm(StyledForm):
     day = forms.DateField(label="Datum", widget=DateInput())
     amount = CzkField(label="Započíst (Kč)")

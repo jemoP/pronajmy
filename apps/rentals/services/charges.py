@@ -6,6 +6,7 @@ celé Kč. Ručně upravený předpis se nepřepisuje. Platby kryjí předpisy o
 """
 
 import calendar
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -140,6 +141,7 @@ class ChargeState:
     charge: RentCharge
     open_cents: int  # nezaplacená část (u dobropisu 0)
     overdue: bool
+    paid_by: tuple[RentPayment, ...] = ()  # platby s vazbou na tento předpis (ZM-005)
 
 
 @dataclass(frozen=True)
@@ -167,6 +169,7 @@ class LeaseBalance:
     oldest_overdue: date | None
     charges: list[ChargeState] = field(default_factory=list)
     deposit: DepositState = DepositState(0, 0, 0, 0)
+    deposit_charges: list[ChargeState] = field(default_factory=list)  # jen pro zobrazení
 
     @property
     def balance(self) -> int:
@@ -191,22 +194,44 @@ def lease_balance(lease: Lease, today: date) -> LeaseBalance:
 
     paid = total(PaymentKind.PAYMENT, PaymentKind.DEPOSIT_OFFSET) - total(PaymentKind.REFUND)
     regular = [c for c in charges if c.kind != ChargeKind.DEPOSIT]
-    pool = paid + sum(-c.amount_cents for c in regular if c.amount_cents < 0)
+    by_charge: dict[int, list[RentPayment]] = defaultdict(list)
+    for payment in payments:
+        if payment.charge_id is not None:
+            by_charge[payment.charge_id].append(payment)
+    # Platba s vazbou kryje nejdřív svůj předpis (ZM-005); přebytek a platby bez vazby
+    # spolu se zápornými předpisy kryjí zbytek od nejstarší splatnosti (FIFO).
+    direct = {
+        c.id: min(
+            sum(p.amount_cents for p in by_charge[c.id] if p.kind == PaymentKind.PAYMENT),
+            max(c.amount_cents, 0),
+        )
+        for c in regular
+    }
+    pool = paid - sum(direct.values()) + sum(-c.amount_cents for c in regular if c.amount_cents < 0)
     states: list[ChargeState] = []
     overdue = 0
     oldest: date | None = None
     for charge in regular:
+        paid_by = tuple(by_charge[charge.id])
         if charge.amount_cents <= 0:
-            states.append(ChargeState(charge, 0, False))
+            states.append(ChargeState(charge, 0, False, paid_by))
             continue
-        covered = max(0, min(pool, charge.amount_cents))
+        rest = charge.amount_cents - direct[charge.id]
+        covered = max(0, min(pool, rest))
         pool -= covered
-        open_cents = charge.amount_cents - covered
+        open_cents = rest - covered
         late = open_cents > 0 and charge.due_date < today
         if late:
             overdue += open_cents
-            oldest = oldest or charge.due_date
-        states.append(ChargeState(charge, open_cents, late))
+            oldest = min(oldest, charge.due_date) if oldest else charge.due_date
+        states.append(ChargeState(charge, open_cents, late, paid_by))
+    deposit_pool = total(PaymentKind.DEPOSIT)
+    deposit_states: list[ChargeState] = []
+    for charge in (c for c in charges if c.kind == ChargeKind.DEPOSIT):
+        covered = max(0, min(deposit_pool, charge.amount_cents))
+        deposit_pool -= covered
+        paid_by = tuple(by_charge[charge.id])
+        deposit_states.append(ChargeState(charge, charge.amount_cents - covered, False, paid_by))
     deposit = DepositState(
         required=sum(c.amount_cents for c in charges if c.kind == ChargeKind.DEPOSIT),
         received=total(PaymentKind.DEPOSIT),
@@ -220,6 +245,7 @@ def lease_balance(lease: Lease, today: date) -> LeaseBalance:
         oldest_overdue=oldest,
         charges=states,
         deposit=deposit,
+        deposit_charges=deposit_states,
     )
 
 

@@ -1,0 +1,19 @@
+{# Řádek předpisu s označením pro platbu (ZM-005). s = ChargeState #}
+<tr>
+  <td class="w-8">{% if s.open_cents > 0 %}<input type="checkbox" name="charges" value="{{ s.charge.pk }}" form="charge-pay" data-amount="{{ s.open_cents }}" aria-label="Označit předpis {{ s.charge.get_kind_display }}{% if s.charge.period %} {{ s.charge.period.month }}/{{ s.charge.period.year }}{% endif %} k zaplacení">{% endif %}</td>
+  <td class="whitespace-nowrap">{{ s.charge.due_date|cz_date }}</td>
+  <td>{{ s.charge.get_kind_display }}{% if s.charge.period %} {{ s.charge.period.month }}/{{ s.charge.period.year }}{% endif %}{% if s.charge.manual %} <span class="badge">ručně</span>{% endif %}{% if s.charge.note %}<div class="text-xs muted">{{ s.charge.note }}</div>{% endif %}</td>
+  <td class="amount{% if s.charge.amount_cents < 0 %} income{% endif %}">{{ s.charge.amount_cents|czk }}</td>
+  <td class="amount whitespace-nowrap">
+    {% if s.charge.amount_cents < 0 %}<span class="text-sm muted">přeplatek / sleva</span>
+    {% elif s.overdue %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="expense">{{ s.open_cents|czk }}</span> <span class="text-xs muted">po splatnosti</span>
+    {% elif s.open_cents %}{{ s.open_cents|czk }} <span class="text-xs muted">{% if s.open_cents < s.charge.amount_cents %}částečně zaplaceno{% else %}nezaplaceno{% endif %}</span>
+    {% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> <span class="text-sm muted">zaplaceno</span>{% endif %}
+    {% for p in s.paid_by %}<div class="text-xs muted">platba {% if p.entry %}<a class="link" href="{% url 'money:entry_edit' p.entry.pk %}">{{ p.paid_on|cz_date }}</a>{% else %}{{ p.paid_on|cz_date }}{% endif %} · {{ p.amount_cents|czk }}</div>{% endfor %}
+  </td>
+  <td class="whitespace-nowrap text-right">
+    {% if s.open_cents > 0 %}<button type="submit" form="charge-pay" name="single" value="{{ s.charge.pk }}" class="btn-link">Zaplaceno</button>{% endif %}
+    <a class="link ml-2" href="{% url 'rentals:charge_edit' lease.pk s.charge.pk %}">Upravit</a>
+    {% if s.charge.manual %}<form method="post" action="{% url 'rentals:charge_delete' lease.pk s.charge.pk %}" class="inline" hx-confirm="{% if s.charge.period %}Vrátit předpis na automatický?{% else %}Smazat předpis?{% endif %}">{% csrf_token %}<button type="submit" class="btn-link ml-2">{% if s.charge.period %}Obnovit{% else %}Smazat{% endif %}</button></form>{% endif %}
+  </td>
+</tr>

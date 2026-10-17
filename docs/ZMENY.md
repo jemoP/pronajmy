@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-005 – Platba z předpisu (jednotlivě i dávkově)
+- **Datum:** 2026-10-17
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** zaplacení konkrétního předpisu má jít zapsat jedním kliknutím a víc předpisů najednou, každý jako samostatnou platbu; tabulka předpisů má ukazovat, který předpis je zaplacený kterou platbou.
+- **Popis:** v tabulce předpisů na smlouvě tlačítko „Zaplaceno“ u otevřeného předpisu a zaškrtávátka pro dávkové zapsání. Z každého předpisu vznikne samostatný příjem na nezaplacenou část s vazbou na předpis (účel podle druhu předpisu, jistota jako Jistota), datum podle splatnosti (nejpozději dnes) nebo jedno zvolené. Platba s vazbou kryje nejdřív svůj předpis, zbytek salda dál FIFO; celkové saldo se nemění. Zápis jedné částky rozdělené FIFO zůstává.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Datový model – `rent_payment`, Pravidla pronájmů – Saldo, Platba z předpisu, Funkční požadavky P06).
+- **Dopad na data:** nový sloupec `rent_payment.charge_id` (NULL, při smazání předpisu SET NULL); existující platby zůstávají bez vazby (FIFO).
+- **Implementováno:** 2026-10-17, větev feature/zm-005
+
 ## ZM-004 – Služby mimo podklad pro daně
 - **Datum:** 2026-10-17
 - **Stav:** hotovo

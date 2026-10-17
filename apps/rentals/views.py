@@ -25,6 +25,7 @@ from apps.money.services.entries import result_for
 from apps.rentals.forms import (
     AmendmentForm,
     ChargeForm,
+    ChargePaymentForm,
     EndLeaseForm,
     LeaseForm,
     OffsetForm,
@@ -66,6 +67,7 @@ from apps.rentals.services.payments import (
     end_with_settlement,
     link_entry,
     offset_deposit,
+    pay_charges,
     pay_out,
     record_payment,
     suggestions,
@@ -412,6 +414,9 @@ def render_lease(request: HttpRequest, lease: Lease, **failed: forms.BaseForm) -
         ),
         "offset_form": OffsetForm(initial={"day": today, "amount": min(held, debt) or None}),
         "end_form": EndLeaseForm(initial={"terminated_on": end or today}),
+        "charge_pay_form": ChargePaymentForm(
+            account=account, initial={"date_mode": "due", "account": account}
+        ),
     }
     page_forms.update(failed)
     payments = sorted(lease.payments.all(), key=lambda p: (p.paid_on or today, p.pk), reverse=True)
@@ -428,6 +433,10 @@ def render_lease(request: HttpRequest, lease: Lease, **failed: forms.BaseForm) -
             "today": today,
             "balance": balance,
             "charges": list(reversed(balance.charges)),
+            "deposit_charges": balance.deposit_charges,
+            "has_open_charges": any(
+                s.open_cents > 0 for s in [*balance.charges, *balance.deposit_charges]
+            ),
             "payments": payments,
             "suggestions": suggestions(lease, today),
             "attachments": attachments_block("lease", lease),
@@ -497,6 +506,37 @@ def lease_payment(request: HttpRequest, pk: int) -> HttpResponse:
         ),
         "Platba zapsána.",
     )
+
+
+@require_POST
+def lease_pay_charges(request: HttpRequest, pk: int) -> HttpResponse:
+    """Platba z předpisů (ZM-005): tlačítko u řádku (single) nebo označené předpisy."""
+    lease = get_lease(pk)
+    today = timezone.localdate()
+    single = opt_int(request.POST.get("single"))
+    ids = [single] if single else [i for v in request.POST.getlist("charges") if (i := opt_int(v))]
+
+    def action(d: dict[str, Any]) -> object:
+        created = pay_charges(
+            lease,
+            ids,
+            day=d["day"] if d["date_mode"] == "day" else None,
+            account_id=d["account"].pk,
+            note=d["note"],
+            today=today,
+        )
+        messages.success(request, f"Zapsáno plateb z předpisů: {len(created)}.")
+        return created
+
+    form = ChargePaymentForm(request.POST, account=payment_account(lease))
+    if form.is_valid():
+        try:
+            action(form.cleaned_data)
+        except ValidationError as exc:
+            add_errors(form, exc)
+        else:
+            return redirect(f"{lease_url(lease)}#predpisy")
+    return render_lease(request, lease, charge_pay_form=form)
 
 
 @require_POST
