@@ -19,8 +19,11 @@
     <input type="hidden" name="owner" value="{{ attachments.owner }}">
     <input type="hidden" name="id" value="{{ attachments.id }}">
     <input type="hidden" name="back" value="{{ request.get_full_path }}">
-    <input type="file" name="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" class="text-sm" aria-label="Soubory">
-    <button type="submit" class="btn btn-secondary">Nahrát</button>
-    <span class="text-xs muted">PDF, JPG nebo PNG do 20 MB</span>
+    {# Skutečné pole je skryté jen vizuálně – zůstává fokusovatelné z klávesnice; tlačítkem je jeho label. #}
+    <input id="file-{{ attachments.owner }}-{{ attachments.id }}" type="file" name="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" class="peer sr-only" data-file-input>
+    <label for="file-{{ attachments.owner }}-{{ attachments.id }}" class="btn btn-secondary peer-focus-visible:ring-4 peer-focus-visible:ring-blue-300"><span aria-hidden="true">📎</span>&nbsp;Vybrat soubory</label>
+    <span class="text-sm muted" data-file-names aria-live="polite">Nic nevybráno</span>
+    <button type="submit" class="btn btn-primary">Nahrát</button>
+    <span class="w-full text-xs muted">PDF, JPG nebo PNG do 20 MB · lze vybrat víc souborů najednou</span>
   </form>
 </section>

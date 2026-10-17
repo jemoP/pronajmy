@@ -124,7 +124,9 @@ def test_attachment_exactly_one_owner(lease: Lease) -> None:
 def test_attachment_blocks_on_pages(auth_client: Client, lease: Lease) -> None:
     amendment = LeaseAmendment.objects.get(lease=lease)
     for url in (f"/leases/{lease.pk}", f"/leases/{lease.pk}/amendments/{amendment.pk}/edit"):
-        assert "PDF, JPG nebo PNG do 20 MB" in auth_client.get(url).content.decode()
+        html = auth_client.get(url).content.decode()
+        assert "PDF, JPG nebo PNG do 20 MB" in html and "Vybrat soubory" in html
+        assert 'for="file-' in html and "data-file-input" in html
     new_page = auth_client.get(f"/leases/{lease.pk}/amendments/new").content.decode()
     assert "PDF, JPG nebo PNG" not in new_page
     response = auth_client.post("/attachments/upload", {"owner": "nic", "id": "1"})
