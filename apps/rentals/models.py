@@ -1,9 +1,13 @@
 """Modely pronájmů. Peníze jsou vždy pohyby (money.Entry); pronájmy na ně jen odkazují.
 Částky jsou int v haléřích (pole *_cents)."""
 
-from django.db import models
+import datetime
 
-from apps.money.models import Account
+from django.db import models
+from django.db.models import Q
+
+from apps.core.formatting import format_date
+from apps.money.models import Account, Entry
 
 
 class Property(models.Model):
@@ -31,3 +35,228 @@ class Property(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class Tenant(models.Model):
+    """Nájemník. Rodné číslo ani číslo dokladu se neukládají."""
+
+    name = models.CharField("jméno", max_length=200)
+    phone = models.CharField("telefon", max_length=50, blank=True)
+    email = models.EmailField("e-mail", blank=True)
+    address = models.CharField("adresa", max_length=300, blank=True)
+    birth_date = models.DateField("datum narození", null=True, blank=True)
+    active = models.BooleanField("aktivní", default=True)
+    note = models.TextField("poznámka", blank=True)
+
+    class Meta:
+        db_table = "tenant"
+        verbose_name = "nájemník"
+        verbose_name_plural = "nájemníci"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class LeaseStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Návrh"
+    ACTIVE = "ACTIVE", "Platná"
+    ENDED = "ENDED", "Ukončená"
+
+
+class Lease(models.Model):
+    """Nájemní smlouva; podmínky platné k datu = smlouva + účinné dodatky."""
+
+    property = models.ForeignKey(
+        Property, models.PROTECT, related_name="leases", verbose_name="byt"
+    )
+    number = models.CharField("číslo smlouvy", max_length=50, blank=True)
+    signed_date = models.DateField("podepsána", null=True, blank=True)
+    start_date = models.DateField("nájem od")
+    end_date = models.DateField("nájem do", null=True, blank=True)  # NULL = doba neurčitá
+    rent_cents = models.BigIntegerField("nájem (haléře)")
+    services_cents = models.BigIntegerField("zálohy na služby (haléře)", default=0)
+    due_day = models.PositiveSmallIntegerField("den splatnosti", default=5)
+    deposit_cents = models.BigIntegerField("jistota (haléře)", default=0)
+    variable_symbol = models.CharField("variabilní symbol", max_length=10, blank=True)
+    account = models.ForeignKey(
+        Account, models.PROTECT, null=True, blank=True, related_name="+", verbose_name="účet"
+    )
+    status = models.CharField(
+        "stav", max_length=10, choices=LeaseStatus.choices, default=LeaseStatus.ACTIVE
+    )
+    # Od kdy se tvoří předpisy a sleduje saldo; NULL = od začátku nájmu.
+    charges_from = models.DateField("sledovat saldo od", null=True, blank=True)
+    terminated_on = models.DateField("ukončena ke dni", null=True, blank=True)
+    termination_reason = models.CharField("důvod ukončení", max_length=300, blank=True)
+    note = models.TextField("poznámka", blank=True)
+    tenants = models.ManyToManyField(Tenant, through="LeaseTenant", related_name="leases")
+
+    class Meta:
+        db_table = "lease"
+        verbose_name = "nájemní smlouva"
+        verbose_name_plural = "nájemní smlouvy"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(rent_cents__gte=0, services_cents__gte=0, deposit_cents__gte=0),
+                name="lease_amounts_not_negative",
+            ),
+            models.CheckConstraint(
+                condition=Q(due_day__gte=1, due_day__lte=31), name="lease_due_day_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(end_date__isnull=True) | Q(end_date__gte=models.F("start_date")),
+                name="lease_end_after_start",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=LeaseStatus.values), name="lease_status_valid"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.property} od {format_date(self.start_date)}"
+
+
+class TenantRole(models.TextChoices):
+    MAIN = "MAIN", "nájemce"
+    CO_TENANT = "CO_TENANT", "spolunájemce"
+
+
+class LeaseTenant(models.Model):
+    lease = models.ForeignKey(Lease, models.CASCADE, related_name="lease_tenants")
+    tenant = models.ForeignKey(Tenant, models.PROTECT, related_name="lease_tenants")
+    role = models.CharField("role", max_length=10, choices=TenantRole.choices)
+
+    class Meta:
+        db_table = "lease_tenant"
+        verbose_name = "nájemník smlouvy"
+        verbose_name_plural = "nájemníci smlouvy"
+        constraints = [
+            models.UniqueConstraint(fields=["lease", "tenant"], name="lease_tenant_unique")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.tenant} ({self.get_role_display()})"
+
+
+class LeaseAmendment(models.Model):
+    """Dodatek mění nájem, zálohy nebo konec smlouvy od data účinnosti (NULL = beze změny)."""
+
+    lease = models.ForeignKey(Lease, models.CASCADE, related_name="amendments")
+    number = models.CharField("číslo dodatku", max_length=50, blank=True)
+    signed_date = models.DateField("podepsán", null=True, blank=True)
+    effective_date = models.DateField("účinný od")
+    description = models.TextField("popis", blank=True)
+    rent_cents = models.BigIntegerField("nový nájem (haléře)", null=True, blank=True)
+    services_cents = models.BigIntegerField("nové zálohy (haléře)", null=True, blank=True)
+    end_date = models.DateField("nový konec nájmu", null=True, blank=True)
+
+    class Meta:
+        db_table = "lease_amendment"
+        verbose_name = "dodatek"
+        verbose_name_plural = "dodatky"
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(rent_cents__isnull=True) | Q(rent_cents__gte=0))
+                & (Q(services_cents__isnull=True) | Q(services_cents__gte=0)),
+                name="lease_amendment_amounts_not_negative",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"Dodatek {self.number or self.pk} od {format_date(self.effective_date)}"
+
+
+class ChargeKind(models.TextChoices):
+    RENT = "RENT", "Nájem"
+    SERVICES = "SERVICES", "Zálohy na služby"
+    SETTLEMENT = "SETTLEMENT", "Vyúčtování"
+    DEPOSIT = "DEPOSIT", "Jistota"
+    OTHER = "OTHER", "Ostatní"
+
+
+MONTHLY_KINDS = (ChargeKind.RENT, ChargeKind.SERVICES)
+
+
+class RentCharge(models.Model):
+    """Předpis. Částka má znaménko: záporná = přeplatek nebo sleva (dobropis)."""
+
+    lease = models.ForeignKey(Lease, models.CASCADE, related_name="charges")
+    kind = models.CharField("druh", max_length=10, choices=ChargeKind.choices)
+    period = models.DateField("měsíc", null=True, blank=True)  # 1. den měsíce
+    due_date = models.DateField("splatnost")
+    amount_cents = models.BigIntegerField("částka (haléře)")
+    # Ručně upravený předpis se při doplňování znovu negeneruje.
+    manual = models.BooleanField("ručně", default=False)
+    note = models.CharField("poznámka", max_length=300, blank=True)
+
+    class Meta:
+        db_table = "rent_charge"
+        verbose_name = "předpis"
+        verbose_name_plural = "předpisy"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lease", "kind", "period"],
+                condition=Q(kind__in=MONTHLY_KINDS),
+                name="rent_charge_monthly_unique",
+            ),
+            models.CheckConstraint(
+                condition=~Q(kind__in=MONTHLY_KINDS) | Q(period__isnull=False),
+                name="rent_charge_monthly_has_period",
+            ),
+            models.CheckConstraint(
+                condition=Q(kind__in=ChargeKind.values), name="rent_charge_kind_valid"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_kind_display()} {format_date(self.due_date)}"
+
+
+class PaymentKind(models.TextChoices):
+    PAYMENT = "PAYMENT", "Platba"
+    DEPOSIT = "DEPOSIT", "Přijatá jistota"
+    REFUND = "REFUND", "Vrácený přeplatek"
+    DEPOSIT_RETURN = "DEPOSIT_RETURN", "Vrácená jistota"
+    DEPOSIT_OFFSET = "DEPOSIT_OFFSET", "Započtení jistoty"
+
+
+class RentPayment(models.Model):
+    """Vazba pohybu na smlouvu. Jeden pohyb jde rozdělit (první nájem + jistota);
+    započtení jistoty na dluh pohyb nemá a nese vlastní datum."""
+
+    lease = models.ForeignKey(Lease, models.CASCADE, related_name="payments")
+    # Smazání pohybu vazbu odstraní.
+    entry = models.ForeignKey(
+        Entry, models.CASCADE, null=True, blank=True, related_name="rent_payments"
+    )
+    kind = models.CharField("druh", max_length=15, choices=PaymentKind.choices)
+    amount_cents = models.BigIntegerField("částka (haléře)")
+    date = models.DateField("datum", null=True, blank=True)
+    note = models.CharField("poznámka", max_length=300, blank=True)
+
+    class Meta:
+        db_table = "rent_payment"
+        verbose_name = "platba nájmu"
+        verbose_name_plural = "platby nájmu"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount_cents__gt=0), name="rent_payment_amount_positive"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(kind=PaymentKind.DEPOSIT_OFFSET, entry__isnull=True, date__isnull=False)
+                    | (~Q(kind=PaymentKind.DEPOSIT_OFFSET) & Q(entry__isnull=False))
+                ),
+                name="rent_payment_entry_by_kind",
+            ),
+            models.CheckConstraint(
+                condition=Q(kind__in=PaymentKind.values), name="rent_payment_kind_valid"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_kind_display()} {self.amount_cents}"
+
+    @property
+    def paid_on(self) -> datetime.date | None:
+        return self.entry.date if self.entry else self.date

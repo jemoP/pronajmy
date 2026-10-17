@@ -13,7 +13,10 @@
     if (accountLabel) accountLabel.textContent = kind === "TRANSFER" ? "Z účtu" : "Účet";
     const select = form.elements.category_id;
     for (const option of select.options) {
-      const allowed = !option.dataset.kind || option.dataset.kind === kind || option.dataset.kind === "NEUTRAL";
+      const optionKind = option.dataset.kind;
+      // Náklad smí mít i účel druhu příjem – vrácení příjmu (ZM-003).
+      const allowed = !optionKind || optionKind === kind || optionKind === "NEUTRAL"
+        || (kind === "EXPENSE" && optionKind === "INCOME");
       if (!allowed && option.selected && kindChanged) select.value = "";
       // Už vybraný účel jiného druhu zůstane viditelný, aby šla chyba opravit.
       const hide = !allowed && !option.selected;

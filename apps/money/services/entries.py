@@ -7,6 +7,7 @@ from math import ceil
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q, QuerySet, Sum
 
+from apps.core.formatting import format_czk
 from apps.money.models import (
     CATEGORIZED_KINDS,
     PROPERTY_OPTIONAL,
@@ -93,23 +94,36 @@ def filtered(f: EntryFilter) -> QuerySet[Entry]:
 
 
 def result_of(qs: QuerySet[Entry], today: date) -> Result:
-    """Výsledek z pohybů do dneška včetně (plánované se nepočítají)."""
+    """Výsledek z pohybů do dneška včetně (plánované se nepočítají). Náklad s účelem
+    druhu příjem je vrácení příjmu (ZM-003) – snižuje příjmy, do nákladů nepatří."""
     rows = (
         qs.filter(
             date__lte=today,
             kind__in=CATEGORIZED_KINDS,
             category__kind__in=(CategoryKind.INCOME, CategoryKind.EXPENSE),
         )
-        .values("kind")
+        .values("kind", "category__kind")
         .annotate(total=Sum("amount_cents"))
         .order_by()
     )
-    totals = {row["kind"]: row["total"] or 0 for row in rows}
-    return Result(totals.get(EntryKind.INCOME, 0), totals.get(EntryKind.EXPENSE, 0))
+    totals = {(row["kind"], row["category__kind"]): row["total"] or 0 for row in rows}
+
+    def total(kind: EntryKind, category_kind: CategoryKind) -> int:
+        return totals.get((kind, category_kind), 0)
+
+    income = total(EntryKind.INCOME, CategoryKind.INCOME) - total(
+        EntryKind.EXPENSE, CategoryKind.INCOME
+    )
+    return Result(income, total(EntryKind.EXPENSE, CategoryKind.EXPENSE))
 
 
-def result_for(date_from: date, date_to: date, today: date) -> Result:
-    return result_of(Entry.objects.filter(date__gte=date_from, date__lte=date_to), today)
+def result_for(
+    date_from: date, date_to: date, today: date, property_id: int | None = None
+) -> Result:
+    qs = Entry.objects.filter(date__gte=date_from, date__lte=date_to)
+    if property_id is not None:
+        qs = qs.filter(property_id=property_id)
+    return result_of(qs, today)
 
 
 def list_entries(f: EntryFilter, today: date) -> EntryPage:
@@ -197,7 +211,11 @@ def validate(data: EntryInput, original: Entry | None = None) -> dict[str, str]:
             errors["category_id"] = "Účel neexistuje."
         else:
             property_required = category.code not in PROPERTY_OPTIONAL
-            if category.kind not in (data.kind, CategoryKind.NEUTRAL):
+            # Náklad smí mít i účel druhu příjem – vrácení příjmu (ZM-003).
+            allowed = {data.kind, CategoryKind.NEUTRAL}
+            if data.kind == EntryKind.EXPENSE:
+                allowed.add(CategoryKind.INCOME)
+            if category.kind not in allowed:
                 kind_name = CategoryKind(category.kind).label
                 errors["category_id"] = f"Účel „{category.name}“ je druhu {kind_name}."
             elif not category.active and changed("category_id"):
@@ -210,6 +228,25 @@ def validate(data: EntryInput, original: Entry | None = None) -> dict[str, str]:
             errors["property_id"] = "Byt neexistuje."
         elif not prop.active and changed("property_id"):
             errors["property_id"] = f"Byt „{prop.name}“ je neaktivní."
+
+    if original is not None:
+        errors.update(_linked_errors(data, original))
+    return errors
+
+
+def _linked_errors(data: EntryInput, original: Entry) -> dict[str, str]:
+    """Pohyb přiřazený ke smlouvě nesmí změnit druh ani byt a jeho částka nesmí klesnout
+    pod přiřazenou část – jinak by přestalo sedět saldo smlouvy."""
+    linked = original.rent_payments.aggregate(total=Sum("amount_cents"))["total"] or 0
+    if not linked:
+        return {}
+    errors: dict[str, str] = {}
+    if data.kind != original.kind:
+        errors["kind"] = "Pohyb je přiřazený ke smlouvě – druh nejde změnit."
+    if data.property_id != original.property_id:
+        errors["property_id"] = "Pohyb je přiřazený ke smlouvě – byt nejde změnit."
+    if data.amount_cents < linked:
+        errors["amount"] = f"Ke smlouvě je přiřazeno {format_czk(linked)} – částka nesmí být nižší."
     return errors
 
 

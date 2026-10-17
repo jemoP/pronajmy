@@ -31,7 +31,7 @@
   <label class="field" data-kinds="INCOME EXPENSE">Účel
     <select class="input" name="category_id"{% if errors.category_id %} aria-invalid="true"{% endif %}>
       <option value="">— vyber účel —</option>
-      {% for c in choices.categories %}<option value="{{ c.id }}" data-kind="{{ c.kind }}"{% if values.category_id == c.id|stringformat:"s" %} selected{% endif %}>{{ c.name }}{% if not c.active %} (neaktivní){% endif %}</option>{% endfor %}
+      {% for c in choices.categories %}<option value="{{ c.id }}" data-kind="{{ c.kind }}"{% if values.category_id == c.id|stringformat:"s" %} selected{% endif %}>{{ c.name }}{% if c.kind == 'INCOME' %} (příjem){% elif c.kind == 'NEUTRAL' %} (neutrální){% endif %}{% if not c.active %} (neaktivní){% endif %}</option>{% endfor %}
     </select>
     {% if errors.category_id %}<span class="error">{{ errors.category_id }}</span>{% endif %}
   </label>

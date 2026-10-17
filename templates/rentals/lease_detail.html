@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Smlouva – {{ lease.property.name }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <p class="text-sm"><a class="link" href="{% url 'rentals:properties' %}">Byty</a> › <a class="link" href="{% url 'rentals:property' lease.property_id %}">{{ lease.property.name }}</a> ›</p>
+    <h1 class="text-2xl font-bold">Smlouva {{ lease.number|default:"bez čísla" }} <span class="badge">{{ lease.get_status_display }}</span></h1>
+    <p class="muted">{{ lease.start_date|cz_date }} – {% if end %}{{ end|cz_date }}{% else %}na dobu neurčitou{% endif %}{% if lease.signed_date %} · podepsána {{ lease.signed_date|cz_date }}{% endif %}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'rentals:lease_edit' lease.pk %}" class="btn btn-secondary">Upravit</a>
+    <a href="{% url 'rentals:amendment_new' lease.pk %}" class="btn btn-secondary">Nový dodatek</a>
+    {% if lease.status == 'DRAFT' %}
+    <form method="post" action="{% url 'rentals:lease_delete' lease.pk %}" hx-confirm="Smazat návrh smlouvy?">{% csrf_token %}<button type="submit" class="btn btn-secondary">Smazat návrh</button></form>
+    {% endif %}
+  </div>
+</div>
+
+{% if lease.status != 'DRAFT' %}
+<section class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <div class="tile"><span class="text-sm muted">Předepsáno{% if lease.charges_from %} od {{ lease.charges_from|cz_date }}{% endif %}</span><strong class="tile-value">{{ balance.charged|czk }}</strong></div>
+  <div class="tile"><span class="text-sm muted">Zaplaceno</span><strong class="tile-value">{{ balance.paid|czk }}</strong></div>
+  <div class="tile"><span class="text-sm muted">{% if balance.balance < 0 %}Přeplatek{% else %}Saldo (dluh){% endif %}</span><strong class="tile-value{% if balance.balance > 0 %} expense{% elif balance.balance < 0 %} income{% endif %}">{{ balance.balance|czk }}</strong></div>
+  <div class="tile"><span class="text-sm muted">Po splatnosti</span><strong class="tile-value{% if balance.overdue %} expense{% endif %}">{% if balance.overdue %}<span aria-hidden="true">✕</span> {{ balance.overdue|czk }}{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> nic{% endif %}</strong>{% if balance.oldest_overdue %}<span class="text-sm muted">nejstarší od {{ balance.oldest_overdue|cz_date }}</span>{% endif %}</div>
+</section>
+{% endif %}
+
+<div class="mb-6 grid gap-4 lg:grid-cols-2">
+  <section class="card">
+    <h2 class="mb-2 text-lg font-semibold">Podmínky dnes</h2>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-2">
+      <div><dt class="text-sm muted">Nájem</dt><dd>{{ terms.rent_cents|czk }}</dd></div>
+      <div><dt class="text-sm muted">Zálohy na služby</dt><dd>{{ terms.services_cents|czk }}</dd></div>
+      <div><dt class="text-sm muted">Splatnost</dt><dd>do {{ lease.due_day }}. dne v měsíci</dd></div>
+      <div><dt class="text-sm muted">Variabilní symbol</dt><dd>{{ lease.variable_symbol|default:"–" }}</dd></div>
+      <div><dt class="text-sm muted">Účet</dt><dd>{{ lease.account.name|default:"–" }}</dd></div>
+      {% if lease.terminated_on %}<div><dt class="text-sm muted">Ukončena</dt><dd>{{ lease.terminated_on|cz_date }}{% if lease.termination_reason %} – {{ lease.termination_reason }}{% endif %}</dd></div>{% endif %}
+    </dl>
+  </section>
+  <section class="card">
+    <h2 class="mb-2 text-lg font-semibold">Nájemníci</h2>
+    <ul class="space-y-2">
+      {% for lt in lease_tenants %}
+      <li><strong>{{ lt.tenant.name }}</strong> <span class="text-sm muted">{{ lt.get_role_display }}</span><br>
+        <span class="text-sm">{% if lt.tenant.phone %}<a class="link" href="tel:{{ lt.tenant.phone }}">{{ lt.tenant.phone }}</a>{% endif %}{% if lt.tenant.phone and lt.tenant.email %} · {% endif %}{% if lt.tenant.email %}<a class="link" href="mailto:{{ lt.tenant.email }}">{{ lt.tenant.email }}</a>{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+{% if lease.status != 'DRAFT' %}
+<section class="mb-6 space-y-3">
+  <h2 class="text-xl font-semibold">Platby</h2>
+  <details class="card"{% if open_section == 'payment_form' or not open_section %} open{% endif %}>
+    <summary class="cursor-pointer font-semibold">Zapsat přijatou platbu</summary>
+    <form method="post" action="{% url 'rentals:lease_payment' lease.pk %}" class="mt-3 space-y-4">
+      {% csrf_token %}
+      {% include "rentals/includes/form_fields.html" with form=payment_form %}
+      <p class="text-sm muted">Vzniknou příjmy na zvolený účet s bytem {{ lease.property.name }}, rozdělené podle předpisů na nájemné, zálohy a vyúčtování (od nejstaršího dluhu). Jistota se zapíše zvlášť a do výsledku se nepočítá.</p>
+      <button type="submit" class="btn btn-primary">Zapsat platbu</button>
+    </form>
+  </details>
+
+  {% if suggestions %}
+  <details class="card">
+    <summary class="cursor-pointer font-semibold">Přiřadit existující příjem ({{ suggestions|length }})</summary>
+    <p class="my-2 text-sm muted">Nepřiřazené příjmy bytu nebo na účet smlouvy; nejblíž měsíční platbě nahoře.</p>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>Datum</th><th>Účel</th><th>Poznámka</th><th class="amount">Volné</th><th></th></tr></thead>
+        <tbody>
+          {% for s in suggestions %}
+          <tr>
+            <td class="whitespace-nowrap">{{ s.entry.date|cz_date }}</td>
+            <td>{{ s.entry.category.name|default:"–" }}</td>
+            <td>{{ s.entry.note }}</td>
+            <td class="amount">{{ s.free_cents|czk }}</td>
+            <td class="whitespace-nowrap text-right">
+              <form method="post" action="{% url 'rentals:lease_link' lease.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="entry" value="{{ s.entry.pk }}"><button type="submit" name="kind" value="PAYMENT" class="btn-link">jako platbu</button> <button type="submit" name="kind" value="DEPOSIT" class="btn-link ml-2">jako jistotu</button></form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+
+  <details class="card"{% if open_section == 'refund_form' %} open{% endif %}>
+    <summary class="cursor-pointer font-semibold">Vrátit přeplatek</summary>
+    <form method="post" action="{% url 'rentals:lease_payout' lease.pk 'REFUND' %}" class="mt-3 space-y-4">
+      {% csrf_token %}
+      {% include "rentals/includes/form_fields.html" with form=refund_form %}
+      <p class="text-sm muted">Vznikne náklad s účelem Vyúčtování služeb – ve výsledku sníží příjmy.</p>
+      <button type="submit" class="btn btn-secondary">Zapsat vrácení</button>
+    </form>
+  </details>
+
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Datum</th><th>Druh</th><th>Pohyb</th><th class="amount">Částka</th><th></th></tr></thead>
+      <tbody>
+        {% for p in payments %}
+        <tr{% if lease.charges_from and p.paid_on < lease.charges_from %} class="text-slate-500"{% endif %}>
+          <td class="whitespace-nowrap">{{ p.paid_on|cz_date }}</td>
+          <td>{{ p.get_kind_display }}{% if lease.charges_from and p.paid_on < lease.charges_from %} <span class="badge">před sledováním</span>{% endif %}</td>
+          <td>{% if p.entry %}<a class="link" href="{% url 'money:entry_edit' p.entry.pk %}">{{ p.entry.note|default:"pohyb" }}</a>{% else %}{{ p.note|default:"bez pohybu" }}{% endif %}</td>
+          <td class="amount{% if p.kind == 'REFUND' or p.kind == 'DEPOSIT_RETURN' %} expense{% endif %}">{{ p.amount_cents|czk }}</td>
+          <td class="text-right"><form method="post" action="{% url 'rentals:payment_unlink' lease.pk p.pk %}" hx-confirm="Odebrat vazbu? Pohyb zůstane.">{% csrf_token %}<button type="submit" class="btn-link">Odebrat</button></form></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">Zatím žádné platby.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-6">
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-xl font-semibold">Předpisy</h2>
+    <a href="{% url 'rentals:charge_new' lease.pk %}" class="btn btn-secondary">Nový předpis (vyúčtování, poplatek)</a>
+  </div>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Splatnost</th><th>Druh</th><th class="amount">Částka</th><th class="amount">Nezaplaceno</th><th></th></tr></thead>
+      <tbody>
+        {% for s in charges %}
+        <tr>
+          <td class="whitespace-nowrap">{{ s.charge.due_date|cz_date }}</td>
+          <td>{{ s.charge.get_kind_display }}{% if s.charge.period %} {{ s.charge.period.month }}/{{ s.charge.period.year }}{% endif %}{% if s.charge.manual %} <span class="badge">ručně</span>{% endif %}{% if s.charge.note %}<div class="text-xs muted">{{ s.charge.note }}</div>{% endif %}</td>
+          <td class="amount{% if s.charge.amount_cents < 0 %} income{% endif %}">{{ s.charge.amount_cents|czk }}</td>
+          <td class="amount whitespace-nowrap">{% if s.overdue %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="expense">{{ s.open_cents|czk }}</span> <span class="text-xs muted">po splatnosti</span>{% elif s.open_cents %}{{ s.open_cents|czk }} <span class="text-xs muted">{% if s.open_cents < s.charge.amount_cents %}částečně zaplaceno{% else %}před splatností{% endif %}</span>{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> <span class="text-sm muted">zaplaceno</span>{% endif %}</td>
+          <td class="whitespace-nowrap text-right">
+            <a class="link" href="{% url 'rentals:charge_edit' lease.pk s.charge.pk %}">Upravit</a>
+            {% if s.charge.manual %}<form method="post" action="{% url 'rentals:charge_delete' lease.pk s.charge.pk %}" class="inline" hx-confirm="{% if s.charge.period %}Vrátit předpis na automatický?{% else %}Smazat předpis?{% endif %}">{% csrf_token %}<button type="submit" class="btn-link ml-2">{% if s.charge.period %}Obnovit{% else %}Smazat{% endif %}</button></form>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">Žádné předpisy.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-6 space-y-3">
+  <h2 class="text-xl font-semibold">Jistota</h2>
+  <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="tile"><dt class="text-sm muted">Sjednáno</dt><dd class="tile-value">{{ lease.deposit_cents|czk }}</dd></div>
+    <div class="tile"><dt class="text-sm muted">Přijato</dt><dd class="tile-value">{{ balance.deposit.received|czk }}</dd></div>
+    <div class="tile"><dt class="text-sm muted">Vráceno / započteno</dt><dd class="tile-value">{{ balance.deposit.returned|add:balance.deposit.offset|czk }}</dd></div>
+    <div class="tile"><dt class="text-sm muted">Drženo</dt><dd class="tile-value">{{ balance.deposit.held|czk }}</dd></div>
+  </dl>
+  {% if balance.deposit.held %}
+  <details class="card"{% if open_section == 'return_form' %} open{% endif %}>
+    <summary class="cursor-pointer font-semibold">Vrátit jistotu</summary>
+    <form method="post" action="{% url 'rentals:lease_payout' lease.pk 'DEPOSIT_RETURN' %}" class="mt-3 space-y-4">
+      {% csrf_token %}
+      {% include "rentals/includes/form_fields.html" with form=return_form %}
+      <button type="submit" class="btn btn-secondary">Zapsat vrácení jistoty</button>
+    </form>
+  </details>
+  <details class="card"{% if open_section == 'offset_form' %} open{% endif %}>
+    <summary class="cursor-pointer font-semibold">Započíst jistotu na dluh</summary>
+    <form method="post" action="{% url 'rentals:lease_offset' lease.pk %}" class="mt-3 space-y-4">
+      {% csrf_token %}
+      {% include "rentals/includes/form_fields.html" with form=offset_form %}
+      <p class="text-sm muted">Bez pohybu peněz – sníží dluh i drženou jistotu.</p>
+      <button type="submit" class="btn btn-secondary">Započíst</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endif %}
+
+<h2 class="mb-2 text-xl font-semibold">Historie podmínek</h2>
+<div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th>Od</th><th>Změna</th><th class="amount">Nájem</th><th class="amount">Zálohy</th><th>Konec nájmu</th><th></th></tr></thead>
+    <tbody>
+      {% for p in history %}
+      <tr>
+        <td class="whitespace-nowrap">{{ p.start|cz_date }}</td>
+        <td>{% if p.amendment %}Dodatek {{ p.amendment.number }}{% if p.amendment.description %}<div class="text-sm muted">{{ p.amendment.description }}</div>{% endif %}{% else %}Smlouva{% endif %}</td>
+        <td class="amount">{{ p.terms.rent_cents|czk }}</td>
+        <td class="amount">{{ p.terms.services_cents|czk }}</td>
+        <td class="whitespace-nowrap">{% if p.terms.end_date %}{{ p.terms.end_date|cz_date }}{% else %}neurčitá{% endif %}</td>
+        <td class="whitespace-nowrap text-right">{% if p.amendment %}
+          <a class="link" href="{% url 'rentals:amendment_edit' lease.pk p.amendment.pk %}">Upravit</a>
+          <form method="post" action="{% url 'rentals:amendment_delete' lease.pk p.amendment.pk %}" class="inline" hx-confirm="Smazat dodatek?">{% csrf_token %}<button type="submit" class="btn-link ml-2">Smazat</button></form>
+        {% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if lease.status != 'ENDED' %}
+<details class="card mb-6"{% if open_section == 'end_form' %} open{% endif %}>
+  <summary class="cursor-pointer font-semibold">Ukončit smlouvu</summary>
+  <form method="post" action="{% url 'rentals:lease_end' lease.pk %}" class="mt-3 space-y-4">
+    {% csrf_token %}
+    {% include "rentals/includes/form_fields.html" with form=end_form %}
+    <p class="text-sm muted">Před ukončením by mělo být saldo vyrovnané a jistota vrácená nebo započtená.</p>
+    <button type="submit" class="btn btn-danger">Ukončit smlouvu</button>
+  </form>
+</details>
+{% endif %}
+{% if lease.note %}<section class="card mb-6"><h2 class="mb-1 font-semibold">Poznámka</h2><p class="whitespace-pre-line">{{ lease.note }}</p></section>{% endif %}
+{% endblock %}

@@ -31,6 +31,12 @@ def test_income_needs_income_or_neutral_category(bank: Account, flat: Property) 
     assert errors_of(**base, category_id=category(CategoryCode.DEPOSIT).id) == {}
 
 
+def test_expense_may_return_income(bank: Account, flat: Property) -> None:
+    """Náklad s účelem druhu příjem = vrácení příjmu (ZM-003); opačně to nejde."""
+    base = {"kind": EntryKind.EXPENSE, "account_id": bank.id, "property_id": flat.id}
+    assert errors_of(**base, category_id=category(CategoryCode.SETTLEMENT).id) == {}
+
+
 def test_property_required_except_other(bank: Account) -> None:
     rent = errors_of(
         kind=EntryKind.INCOME, account_id=bank.id, category_id=category(CategoryCode.RENT).id

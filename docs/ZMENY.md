@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-003 – Vrácení přeplatku snižuje příjmy
+- **Datum:** 2026-10-17
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** vrácený přeplatek zapsaný jako náklad nadsazuje příjmy i náklady; podklad pro daňové přiznání (P13) by počítal paušál 30 % z vyšších příjmů.
+- **Popis:** náklad (EXPENSE) smí mít účel druhu příjem – jde o vrácení příjmu. Ve výsledku se odečte od příjmů, do nákladů se nepočítá. Vrácení přeplatku nájemníkovi se zapisuje jako náklad s účelem Vyúčtování služeb.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Pravidla pohybů, Pravidla pronájmů – Zápis platby), CLAUDE.md (Doména).
+- **Dopad na data:** žádný (beze změny schématu).
+- **Implementováno:** 2026-10-17, větev feature/etapa-2
+
 ## ZM-002 – Interní kód účelu, byty už v etapě 1
 - **Datum:** 2026-10-16
 - **Stav:** hotovo

@@ -55,7 +55,7 @@ Python 3.12, uv, Django 5.2, PostgreSQL 16, Django šablony + HTMX + Tailwind CS
 
 ## Doména
 - Druhy pohybů: INCOME příjem, EXPENSE náklad, TRANSFER převod mezi účty pronájmů, WITHDRAWAL výběr do domácnosti, DEPOSIT vklad z domácnosti.
-- Do výsledku patří jen příjmy a náklady s účelem druhu INCOME / EXPENSE; jistota (neutrální účel), převody, výběry a vklady ne.
+- Výsledek: příjmy = INCOME s účelem druhu INCOME − EXPENSE s účelem druhu INCOME (vrácení příjmu, např. přeplatku); náklady = EXPENSE s účelem druhu EXPENSE. Jistota (neutrální účel), převody, výběry a vklady se nepočítají.
 - Příjem a náklad mají byt (kromě ostatních příjmů / nákladů); platby, opravy a revize na pohyby jen odkazují.
 - Předpisy: měsíčně z podmínek k 1. dni měsíce (smlouva + dodatky), neúplný měsíc poměrem dní na celé Kč, ruční předpis se nepřepisuje.
 - Saldo = předpisy − platby, FIFO od nejstarší splatnosti; jistota se sleduje mimo saldo.
