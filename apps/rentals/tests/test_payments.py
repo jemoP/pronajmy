@@ -171,7 +171,10 @@ def test_deposit_offset_and_refunds(lease: Lease, rental_account: Account) -> No
         today=TODAY,
     )
     assert lease_balance(lease, TODAY).balance == 0
-    assert refund.category is not None and refund.category.code == CategoryCode.OTHER_EXPENSE
+    assert refund.category is not None and refund.category.code == CategoryCode.SETTLEMENT
+    # Vrácený přeplatek snižuje příjmy, náklady nezvyšuje (ZM-003).
+    year = result_for(date(2026, 1, 1), date(2026, 12, 31), TODAY)
+    assert (year.income_cents, year.expense_cents) == (9 * 1_800_000 - 50_000, 0)
 
 
 def income(account: Account, amount: int, day: date, **kwargs: object) -> Entry:

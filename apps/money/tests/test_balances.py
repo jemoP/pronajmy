@@ -29,6 +29,14 @@ def test_income_increases_and_expense_decreases_balance(bank: Account, flat: Pro
     assert result().profit_cents == 1_500_000
 
 
+def test_returned_income_lowers_income(bank: Account, flat: Property) -> None:
+    add(EntryKind.INCOME, 1_800_000, bank, code=CategoryCode.RENT, prop=flat)
+    add(EntryKind.EXPENSE, 200_000, bank, code=CategoryCode.SETTLEMENT, prop=flat)
+    add(EntryKind.EXPENSE, 300_000, bank, code=CategoryCode.REPAIRS, prop=flat)
+    assert balance(bank) == 1_000_000 + 1_800_000 - 200_000 - 300_000
+    assert result() == Result(1_600_000, 300_000)
+
+
 def test_withdrawal_lowers_balance_but_not_result(bank: Account, flat: Property) -> None:
     add(EntryKind.INCOME, 1_800_000, bank, code=CategoryCode.RENT, prop=flat)
     before = result()

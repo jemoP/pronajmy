@@ -158,8 +158,8 @@ def pay_out(
         kind=EntryKind.EXPENSE,
         amount=amount,
         account_id=account_id,
-        # Účel náklad musí být druhu náklad – přeplatek jde do ostatních nákladů.
-        code=CategoryCode.DEPOSIT if deposit else CategoryCode.OTHER_EXPENSE,
+        # Vrácený přeplatek snižuje příjmy (ZM-003).
+        code=CategoryCode.DEPOSIT if deposit else CategoryCode.SETTLEMENT,
         note=payment_note(lease, note.strip() or label),
     )
     RentPayment.objects.create(lease=lease, entry=entry, kind=kind, amount_cents=amount)

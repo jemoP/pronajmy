@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 16. 10. 2026, ZM-002 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 17. 10. 2026, ZM-003 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -69,13 +69,15 @@ přeřadit a deaktivovat, ale ne smazat ani změnit jeho druh.
 Pravidla pohybů:
 
 - INCOME a EXPENSE mají povinný účel odpovídajícího druhu (NEUTRAL jde u obou – jistota přijatá
-  je příjem, vrácená výdaj) a povinný byt (`property_id`), kromě účelu „Ostatní příjmy /
+  je příjem, vrácená výdaj; EXPENSE smí mít i účel druhu INCOME = vrácení příjmu, např. vrácený
+  přeplatek) a povinný byt (`property_id`), kromě účelu „Ostatní příjmy /
   náklady“, kde je byt volitelný.
 - TRANSFER = převod mezi dvěma účty pronájmů (`to_account_id` povinný a jiný než `account_id`).
 - WITHDRAWAL = výběr do domácnosti (odchází z účtu), DEPOSIT = vklad z domácnosti (přichází).
   TRANSFER, WITHDRAWAL a DEPOSIT nemají účel ani byt.
-- Do výsledku (příjmy, náklady, zisk) patří jen INCOME a EXPENSE s účelem druhu INCOME /
-  EXPENSE; neutrální účely (jistota), převody, výběry a vklady se nepočítají.
+- Výsledek: příjmy = INCOME s účelem druhu INCOME − EXPENSE s účelem druhu INCOME (vrácení
+  příjmu snižuje příjmy, ne zvyšuje náklady); náklady = EXPENSE s účelem druhu EXPENSE;
+  zisk = příjmy − náklady. Neutrální účely (jistota), převody, výběry a vklady se nepočítají.
 - Pohyb s datem v budoucnosti je plánovaný: nepočítá se do aktuálního zůstatku ani výsledku.
 
 ### Pronájmy (aplikace `rentals`)
@@ -121,7 +123,8 @@ ověření vodoměrů 60.
   splatností před dneškem.
 - **Zápis platby** v aplikaci vytvoří příjmy na účet smlouvy rozdělené podle předpisů, které
   platba kryje (Nájemné, Zálohy na služby, Vyúčtování služeb; přeplatek jako Nájemné), a zvlášť
-  příjem s účelem Jistota. Existující příjem jde ke smlouvě přiřadit celý nebo po částech;
+  příjem s účelem Jistota. Vrácení přeplatku je EXPENSE s účelem Vyúčtování služeb (sníží
+  příjmy), vrácení jistoty EXPENSE s účelem Jistota. Existující příjem jde ke smlouvě přiřadit celý nebo po částech;
   aplikace navrhne nepřiřazené příjmy bytu nebo na účet smlouvy (45 dní před začátkem až
   45 dní po konci nájmu), nejbližší měsíční platbě nahoře.
 - **Ukončení smlouvy** s nevyrovnaným saldem nebo drženou jistotou jen s výslovným potvrzením.

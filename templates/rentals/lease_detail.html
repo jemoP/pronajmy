@@ -91,6 +91,7 @@
     <form method="post" action="{% url 'rentals:lease_payout' lease.pk 'REFUND' %}" class="mt-3 space-y-4">
       {% csrf_token %}
       {% include "rentals/includes/form_fields.html" with form=refund_form %}
+      <p class="text-sm muted">Vznikne náklad s účelem Vyúčtování služeb – ve výsledku sníží příjmy.</p>
       <button type="submit" class="btn btn-secondary">Zapsat vrácení</button>
     </form>
   </details>

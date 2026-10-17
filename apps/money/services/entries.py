@@ -94,19 +94,27 @@ def filtered(f: EntryFilter) -> QuerySet[Entry]:
 
 
 def result_of(qs: QuerySet[Entry], today: date) -> Result:
-    """Výsledek z pohybů do dneška včetně (plánované se nepočítají)."""
+    """Výsledek z pohybů do dneška včetně (plánované se nepočítají). Náklad s účelem
+    druhu příjem je vrácení příjmu (ZM-003) – snižuje příjmy, do nákladů nepatří."""
     rows = (
         qs.filter(
             date__lte=today,
             kind__in=CATEGORIZED_KINDS,
             category__kind__in=(CategoryKind.INCOME, CategoryKind.EXPENSE),
         )
-        .values("kind")
+        .values("kind", "category__kind")
         .annotate(total=Sum("amount_cents"))
         .order_by()
     )
-    totals = {row["kind"]: row["total"] or 0 for row in rows}
-    return Result(totals.get(EntryKind.INCOME, 0), totals.get(EntryKind.EXPENSE, 0))
+    totals = {(row["kind"], row["category__kind"]): row["total"] or 0 for row in rows}
+
+    def total(kind: EntryKind, category_kind: CategoryKind) -> int:
+        return totals.get((kind, category_kind), 0)
+
+    income = total(EntryKind.INCOME, CategoryKind.INCOME) - total(
+        EntryKind.EXPENSE, CategoryKind.INCOME
+    )
+    return Result(income, total(EntryKind.EXPENSE, CategoryKind.EXPENSE))
 
 
 def result_for(
@@ -203,7 +211,11 @@ def validate(data: EntryInput, original: Entry | None = None) -> dict[str, str]:
             errors["category_id"] = "Účel neexistuje."
         else:
             property_required = category.code not in PROPERTY_OPTIONAL
-            if category.kind not in (data.kind, CategoryKind.NEUTRAL):
+            # Náklad smí mít i účel druhu příjem – vrácení příjmu (ZM-003).
+            allowed = {data.kind, CategoryKind.NEUTRAL}
+            if data.kind == EntryKind.EXPENSE:
+                allowed.add(CategoryKind.INCOME)
+            if category.kind not in allowed:
                 kind_name = CategoryKind(category.kind).label
                 errors["category_id"] = f"Účel „{category.name}“ je druhu {kind_name}."
             elif not category.active and changed("category_id"):
