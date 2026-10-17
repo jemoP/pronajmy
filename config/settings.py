@@ -60,6 +60,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.money.context_processors.choices",
+                "apps.rentals.context_processors.alerts",
             ],
             "builtins": ["apps.core.templatetags.ui", "django.templatetags.static"],
         },

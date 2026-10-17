@@ -19,6 +19,7 @@
       <label class="field">Pořadí <input class="input" name="sort" type="number" value="{{ values.sort }}"></label>
     </div>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="active"{% if values.active == 'on' %} checked{% endif %}> Aktivní (nabízet při zadávání pohybů)</label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="taxable"{% if values.taxable == 'on' %} checked{% endif %}> Počítat do daní (podklad pro daňové přiznání)</label>
     <div class="flex flex-wrap gap-2">
       <button type="submit" class="btn btn-primary">Uložit</button>
       <a href="{% url 'money:categories' %}" class="btn btn-secondary">Zpět</a>

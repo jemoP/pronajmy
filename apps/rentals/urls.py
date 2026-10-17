@@ -1,11 +1,13 @@
 from django.urls import path
 
 from . import maintenance_views as mv
-from . import views
+from . import report_views, views
 
 app_name = "rentals"
 urlpatterns = [
     path("", views.overview, name="overview"),
+    path("report", report_views.report, name="report"),
+    path("report/export.<str:fmt>", report_views.report_export, name="report_export"),
     path("properties", views.properties, name="properties"),
     path("properties/new", views.property_form, name="property_new"),
     path("properties/<int:pk>", views.property_detail, name="property"),

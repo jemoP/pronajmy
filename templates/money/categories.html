@@ -18,18 +18,20 @@
       {% if errors.kind %}<span class="error">{{ errors.kind }}</span>{% endif %}
     </label>
     <label class="field">Pořadí <input class="input w-24" name="sort" type="number" value="{{ values.sort|default:'' }}"></label>
+    <label class="flex min-h-10 items-center gap-2 self-end text-sm"><input type="checkbox" name="taxable"{% if values.taxable == 'on' %} checked{% endif %}> Počítat do daní</label>
     <button type="submit" class="btn btn-primary self-end">Přidat účel</button>
   </form>
 </details>
 
 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
   <table class="table">
-    <thead><tr><th>Účel</th><th>Druh</th><th class="amount">Pořadí</th><th class="amount">Pohybů</th><th></th></tr></thead>
+    <thead><tr><th>Účel</th><th>Druh</th><th>Do daní</th><th class="amount">Pořadí</th><th class="amount">Pohybů</th><th></th></tr></thead>
     <tbody>
       {% for c, used in rows %}
       <tr class="{% if not c.active %}text-slate-500{% endif %}">
         <td>{{ c.name }}{% if c.code %} <span class="badge">výchozí</span>{% endif %}{% if not c.active %} <span class="badge">neaktivní</span>{% endif %}</td>
         <td>{{ c.get_kind_display }}</td>
+        <td class="whitespace-nowrap">{% if c.kind == 'NEUTRAL' %}<span class="muted">–</span>{% elif c.taxable %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> ano{% else %}<span aria-hidden="true">✕</span> ne{% endif %}</td>
         <td class="amount">{{ c.sort }}</td>
         <td class="amount"><a class="link" href="{% url 'money:entries' %}?category={{ c.id }}">{{ used }}</a></td>
         <td class="whitespace-nowrap text-right">
@@ -45,5 +47,5 @@
     </tbody>
   </table>
 </div>
-<p class="mt-2 text-sm muted">Do výsledku se počítají jen účely druhu příjem a náklad; neutrální (jistota) ne. Náklad s účelem druhu příjem je vrácení příjmu (např. přeplatku) a sníží příjmy. Výchozí účely nejde smazat ani změnit jejich druh.</p>
+<p class="mt-2 text-sm muted">Do výsledku se počítají jen účely druhu příjem a náklad; neutrální (jistota) ne. Náklad s účelem druhu příjem je vrácení příjmu (např. přeplatku) a sníží příjmy. Výchozí účely nejde smazat ani změnit jejich druh. „Do daní“ určuje, zda se účel počítá do podkladu pro daňové přiznání (zálohy, vyúčtování a služby jsou průběžné položky a do daní nepatří).</p>
 {% endblock %}

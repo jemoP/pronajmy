@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 17. 10. 2026, ZM-003 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 17. 10. 2026, ZM-004 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -54,7 +54,7 @@ zobrazení v Europe/Prague. Názvy tabulek odpovídají tabulce níže (`Meta.db
 | Tabulka | Klíčové sloupce | Poznámka |
 | --- | --- | --- |
 | `account` | id, name, kind (BANK / CASH), bank_code, account_number, opening_balance_cents, active | Účet pronájmů; zůstatek = počáteční stav + příchozí − odchozí pohyby |
-| `category` | id, name, kind (INCOME / EXPENSE / NEUTRAL), code, sort, active | Účel pohybu; `code` = interní označení výchozího účelu (unikátní, u účelů přidaných uživatelem prázdné) |
+| `category` | id, name, kind (INCOME / EXPENSE / NEUTRAL), code, sort, active, taxable | Účel pohybu; `code` = interní označení výchozího účelu (unikátní, u účelů přidaných uživatelem prázdné); `taxable` = počítá se do podkladu pro daně (výchozí ano) |
 | `entry` | id, date, kind (INCOME / EXPENSE / TRANSFER / WITHDRAWAL / DEPOSIT), amount_cents (> 0), account_id, to_account_id, category_id, property_id, note, created_at, updated_at | Pohyb peněz |
 
 Výchozí účely (datová migrace): příjmy Nájemné, Zálohy na služby, Vyúčtování služeb, Ostatní
@@ -65,6 +65,10 @@ Výchozí účely mají interní `code` (RENT, SERVICES, SETTLEMENT, OTHER_INCOM
 INSPECTION, INSURANCE, PROPERTY_TAX, HOA_FUND, UTILITIES, MANAGEMENT, FEES, OTHER_EXPENSE,
 DEPOSIT), podle kterého je aplikace najde i po přejmenování. Účel s kódem jde přejmenovat,
 přeřadit a deaktivovat, ale ne smazat ani změnit jeho druh.
+
+Do podkladu pro daně se nepočítají účely s `taxable` = ne. Výchozí nastavení: Zálohy na služby,
+Vyúčtování služeb a náklad Služby jsou průběžné položky (služby, které pronajímatel jen přeposílá
+dodavatelům) a do daní nepatří; ostatní účely ano. Příznak jde u každého účelu změnit.
 
 Pravidla pohybů:
 
@@ -155,7 +159,7 @@ ověření vodoměrů 60.
 | P10 | Revize | Plán po bytech a zařízeních, historie s protokoly, příští termín, číselník druhů | Musí |
 | P11 | Přehledy | Upozornění na všech stránkách a v přehledu pronájmů | Má |
 | P12 | Přehledy | Výkaz po bytech a měsících / letech (příjmy, náklady podle účelů, zisk, meziročně, graf), zůstatky účtů, výběry a vklady | Musí |
-| P13 | Přehledy | Podklad pro daňové přiznání (§ 9): příjmy, skutečné výdaje proti paušálu 30 %, nejvýš 600 000 Kč ročně; upozornění, že skutečné výdaje nezahrnují odpisy ani úroky | Má |
+| P13 | Přehledy | Podklad pro daňové přiznání (§ 9): příjmy, skutečné výdaje proti paušálu 30 %, nejvýš 600 000 Kč ročně; jen účely s příznakem „počítat do daní“ (bez záloh, vyúčtování a nákladu Služby); upozornění, že skutečné výdaje nezahrnují odpisy ani úroky | Má |
 | P14 | Export | Export pohybů a výkazu do CSV (český Excel: UTF-8 s BOM, středník, desetinná čárka) a XLSX; bez kontaktů nájemníků a čísel účtů | Má |
 | P15 | Zálohy | Denní šifrovaná záloha databáze a příloh, kontrola a obnova | Musí |
 | P16 | Přístup | Přihlášení heslem (jeden účet), provoz jen přes Tailscale | Musí |

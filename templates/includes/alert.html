@@ -1,0 +1,2 @@
+{# Jedno upozornění – vždy ikona + text, nikdy jen barva. #}
+<li class="{% if alert.level == 'over' %}notice-error{% else %}notice-warning{% endif %}"><span aria-hidden="true" style="color: var(--status-{{ alert.level }})">{% if alert.level == 'over' %}✕{% else %}⚠{% endif %}</span> <span class="sr-only">{% if alert.level == 'over' %}Po termínu:{% else %}Blíží se:{% endif %} </span><a class="link" href="{{ alert.url }}">{{ alert.text }}</a></li>
