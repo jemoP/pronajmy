@@ -71,6 +71,7 @@ class EntryPage:
     sums: dict[str, int]  # druh → součet bez plánovaných pohybů
     planned_count: int
     result: Result
+    deposits: dict[str, int]  # jistota (neutrální účel): druh pohybu → součet, mimo výsledek
 
 
 def filtered(f: EntryFilter) -> QuerySet[Entry]:
@@ -138,6 +139,13 @@ def list_entries(f: EntryFilter, today: date) -> EntryPage:
         .order_by()
     ):
         sums[row["kind"]] = row["total"] or 0
+    deposits = {
+        row["kind"]: row["total"] or 0
+        for row in qs.filter(date__lte=today, category__kind=CategoryKind.NEUTRAL)
+        .values("kind")
+        .annotate(total=Sum("amount_cents"))
+        .order_by()
+    }
     pages = max(1, ceil(total_count / PAGE_SIZE))
     page = min(max(1, f.page), pages)
 
@@ -148,7 +156,14 @@ def list_entries(f: EntryFilter, today: date) -> EntryPage:
         f"{prefix}{field}", f"{prefix}id"
     )[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
     return EntryPage(
-        list(rows), total_count, page, pages, sums, planned_count, result_of(qs, today)
+        list(rows),
+        total_count,
+        page,
+        pages,
+        sums,
+        planned_count,
+        result_of(qs, today),
+        deposits,
     )
 
 

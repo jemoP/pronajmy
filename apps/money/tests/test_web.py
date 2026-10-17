@@ -167,3 +167,21 @@ def test_categories_page(auth_client: Client, db: None) -> None:
     )
     rent.refresh_from_db()
     assert response.status_code == 302 and rent.name == "Nájem" and not rent.active
+
+
+def test_list_sums_match_result_and_show_deposits(
+    auth_client: Client, bank: Account, flat: Property
+) -> None:
+    """Příjmy − Náklady = Výsledek; jistota je v součtech zvlášť (ne v příjmech a nákladech)."""
+    day = timezone.localdate()
+    add(EntryKind.INCOME, 1_800_000, bank, day=day, code=CategoryCode.RENT, prop=flat)
+    add(EntryKind.INCOME, 3_600_000, bank, day=day, code=CategoryCode.DEPOSIT, prop=flat)
+    add(EntryKind.EXPENSE, 1_000_000, bank, day=day, code=CategoryCode.DEPOSIT, prop=flat)
+    add(EntryKind.EXPENSE, 300_000, bank, day=day, code=CategoryCode.REPAIRS, prop=flat)
+    html = auth_client.get("/entries").content.decode()
+    nbsp = " "
+    assert f"18{nbsp}000,00{nbsp}Kč" in html  # příjmy bez jistoty
+    assert f"3{nbsp}000,00{nbsp}Kč" in html  # náklady bez vrácené jistoty
+    assert f"15{nbsp}000,00{nbsp}Kč" in html  # výsledek
+    assert f"přijato 36{nbsp}000,00{nbsp}Kč · vráceno 10{nbsp}000,00{nbsp}Kč" in html
+    assert f"54{nbsp}000,00{nbsp}Kč" not in html  # dřívější součet všech příjmů
