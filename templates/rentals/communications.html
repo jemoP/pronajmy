@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Komunikace{% endblock %}
+{% block content %}
+{% include "rentals/includes/maintenance_tabs.html" %}
+<p class="mb-3 text-sm muted">Nový záznam zadáš na kartě bytu.</p>
+<h2 class="mb-2 text-xl font-semibold">K vyřízení ({{ open|length }})</h2>
+<div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th>Kdy</th><th>Byt</th><th>Kontakt</th><th>Předmět</th><th>Vyřídit</th></tr></thead>
+    <tbody>{% include "rentals/includes/communication_rows.html" with items=open show_property=True %}</tbody>
+  </table>
+</div>
+<h2 class="mb-2 text-xl font-semibold">Poslední záznamy</h2>
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th>Kdy</th><th>Byt</th><th>Kontakt</th><th>Předmět</th><th>Vyřídit</th></tr></thead>
+    <tbody>{% include "rentals/includes/communication_rows.html" with items=recent show_property=True %}</tbody>
+  </table>
+</div>
+{% endblock %}

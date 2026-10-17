@@ -38,3 +38,23 @@
   document.addEventListener("DOMContentLoaded", () => init(document));
   document.addEventListener("htmx:load", (event) => init(event.detail.elt));
 })();
+
+// Přílohy: vedle tlačítka „Vybrat soubory“ ukáže, co je vybrané.
+(function () {
+  "use strict";
+
+  function label(files) {
+    if (!files.length) return "Nic nevybráno";
+    if (files.length === 1) return files[0].name;
+    const n = files.length;
+    const word = n < 5 ? "soubory" : "souborů";
+    return `${n} ${word}: ${Array.from(files, (f) => f.name).join(", ")}`;
+  }
+
+  document.addEventListener("change", (event) => {
+    const input = event.target;
+    if (!input.matches || !input.matches("input[data-file-input]")) return;
+    const names = input.form && input.form.querySelector("[data-file-names]");
+    if (names) names.textContent = label(input.files);
+  });
+})();

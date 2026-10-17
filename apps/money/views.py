@@ -353,6 +353,7 @@ def categories(request: HttpRequest) -> HttpResponse:
         "money/categories.html",
         {
             "nav": "categories",
+            "tab": "categories",
             "rows": list_categories(),
             "values": values,
             "errors": errors,

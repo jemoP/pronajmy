@@ -1,0 +1,12 @@
+{% for c in items %}
+<tr>
+  <td class="whitespace-nowrap">{{ c.occurred_at|date:"j. n. Y H:i" }}</td>
+  {% if show_property %}<td>{% if c.property %}<a class="link" href="{% url 'rentals:property' c.property_id %}#komunikace">{{ c.property.name }}</a>{% endif %}</td>{% endif %}
+  <td>{{ c.get_direction_display }} · {{ c.get_channel_display }}{% if c.tenant %}<div class="text-xs muted">{{ c.tenant.name }}</div>{% endif %}</td>
+  <td><a class="link" href="{% url 'rentals:communication_edit' c.pk %}">{{ c.subject }}</a>{% include "rentals/includes/attachment_badge.html" with n=c.attachment_count %}{% if c.text %}<div class="text-sm muted">{{ c.text|truncatechars:120 }}</div>{% endif %}</td>
+  <td class="whitespace-nowrap">{% if c.follow_up_date %}{% if c.follow_up_done %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> vyřízeno{% else %}{% if c.follow_up_date < today %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> po termínu{% else %}<span aria-hidden="true" style="color: var(--status-warning)">⚠</span>{% endif %} do {{ c.follow_up_date|cz_date }}
+    <form method="post" action="{% url 'rentals:communication_done' c.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="back" value="{{ request.get_full_path }}"><button type="submit" class="btn-link ml-1">vyřízeno</button></form>{% endif %}{% endif %}</td>
+</tr>
+{% empty %}
+<tr><td colspan="{% if show_property %}5{% else %}4{% endif %}">Žádné záznamy.</td></tr>
+{% endfor %}

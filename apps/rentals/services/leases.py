@@ -16,6 +16,7 @@ from apps.rentals.models import (
     Property,
     Tenant,
     TenantRole,
+    with_attachment_count,
 )
 
 
@@ -76,12 +77,8 @@ def lease_end(lease: Lease) -> date | None:
 
 def leases_with_details() -> Any:
     """Prefetch smluv bytu s dodatky a nájemníky (pro karty a přehled)."""
-    return Prefetch(
-        "leases",
-        queryset=Lease.objects.prefetch_related("amendments", "lease_tenants__tenant").order_by(
-            "-start_date"
-        ),
-    )
+    leases = Lease.objects.prefetch_related("amendments", "lease_tenants__tenant")
+    return Prefetch("leases", queryset=with_attachment_count(leases).order_by("-start_date"))
 
 
 def current_lease(prop: Property, today: date) -> Lease | None:

@@ -7,7 +7,20 @@ from django.db.models import QuerySet
 
 from apps.core.formatting import format_amount_input, parse_czk
 from apps.money.models import Account
-from apps.rentals.models import ChargeKind, Lease, LeaseAmendment, LeaseStatus, RentCharge, Tenant
+from apps.rentals.models import (
+    ChargeKind,
+    Communication,
+    Inspection,
+    InspectionPlan,
+    InspectionType,
+    Lease,
+    LeaseAmendment,
+    LeaseStatus,
+    Property,
+    RentCharge,
+    Repair,
+    Tenant,
+)
 
 
 class CzkField(forms.CharField):
@@ -285,3 +298,160 @@ class ChargeForm(StyledModelForm):
                 (ChargeKind.SETTLEMENT.value, "Vyúčtování (nedoplatek / přeplatek)"),
                 (ChargeKind.OTHER.value, "Ostatní"),
             ]
+
+
+class DateTimeInput(forms.DateTimeInput):
+    input_type = "datetime-local"
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(format="%Y-%m-%dT%H:%M", **kwargs)
+
+
+def property_leases(prop: Property) -> QuerySet[Lease]:
+    return Lease.objects.filter(property=prop).select_related("property").order_by("-start_date")
+
+
+def property_tenants(prop: Property, keep: Tenant | None) -> QuerySet[Tenant]:
+    """Nájemníci smluv bytu (i dřívějších), případně už vybraný."""
+    qs = Tenant.objects.filter(lease_tenants__lease__property=prop)
+    if keep is not None:
+        qs = qs | Tenant.objects.filter(pk=keep.pk)
+    return qs.distinct().order_by("name")
+
+
+class CommunicationForm(StyledModelForm):
+    class Meta:
+        model = Communication
+        fields = [
+            "occurred_at",
+            "channel",
+            "direction",
+            "tenant",
+            "lease",
+            "subject",
+            "text",
+            "follow_up_date",
+            "follow_up_done",
+        ]
+        widgets = {
+            "occurred_at": DateTimeInput(),
+            "follow_up_date": DateInput(),
+            "text": forms.Textarea(attrs={"rows": 5}),
+        }
+        help_texts = {"follow_up_date": "Když je potřeba něco vyřídit – zobrazí se k vyřízení."}
+
+    def __init__(self, *args: Any, prop: Property, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["lease"].queryset = property_leases(prop)  # type: ignore[attr-defined]
+        self.fields["tenant"].queryset = property_tenants(prop, self.instance.tenant)  # type: ignore[attr-defined]
+
+
+def expense_account_field() -> forms.ModelChoiceField:  # type: ignore[type-arg]
+    return forms.ModelChoiceField(
+        queryset=Account.objects.none(),
+        label="Zaplatit z účtu",
+        required=False,
+        help_text="Vyplň, když se má zapsat náklad (jen jednou).",
+    )
+
+
+class ExpenseFormMixin:
+    """Volitelný účet: s ním a s náklady vznikne náklad s bytem; zapsaný náklad se nemění."""
+
+    fields: dict[str, forms.Field]
+    instance: Any
+
+    def setup_expense(self, prop: Property) -> None:
+        field = self.fields["expense_account"]
+        field.queryset = account_queryset(prop.account)  # type: ignore[attr-defined]
+        if self.instance.entry_id:
+            field.disabled = True
+            field.help_text = "Náklad už je zapsaný."
+        else:
+            field.initial = prop.account
+
+
+class RepairForm(ExpenseFormMixin, StyledModelForm):
+    cost_cents = CzkField(label="Náklady (Kč)", required=False)
+    expense_account = expense_account_field()
+
+    class Meta:
+        model = Repair
+        fields = [
+            "reported_date",
+            "reported_by",
+            "title",
+            "status",
+            "contractor",
+            "done_date",
+            "cost_cents",
+            "paid_by",
+            "lease",
+            "description",
+        ]
+        widgets = {
+            "reported_date": DateInput(),
+            "done_date": DateInput(),
+            "description": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args: Any, prop: Property, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["lease"].queryset = property_leases(prop)  # type: ignore[attr-defined]
+        self.setup_expense(prop)
+
+
+class InspectionTypeForm(StyledModelForm):
+    class Meta:
+        model = InspectionType
+        fields = ["name", "interval_months", "remind_days", "active", "note"]
+        widgets = {"note": forms.Textarea(attrs={"rows": 3})}
+
+    def clean_interval_months(self) -> int:
+        months: int = self.cleaned_data["interval_months"]
+        if months < 1:
+            raise forms.ValidationError("Interval musí být aspoň 1 měsíc.")
+        return months
+
+
+class InspectionPlanForm(StyledModelForm):
+    class Meta:
+        model = InspectionPlan
+        fields = ["type", "device", "interval_months", "first_due_date", "active", "note"]
+        widgets = {"first_due_date": DateInput(), "note": forms.Textarea(attrs={"rows": 3})}
+        help_texts = {
+            "interval_months": "Prázdné = podle druhu revize.",
+            "first_due_date": "Termín, dokud není zapsaná žádná provedená revize.",
+        }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        types = InspectionType.objects.filter(active=True)
+        if self.instance.type_id:
+            types = types | InspectionType.objects.filter(pk=self.instance.type_id)
+        self.fields["type"].queryset = types.order_by("name")  # type: ignore[attr-defined]
+
+    def clean_interval_months(self) -> int | None:
+        months: int | None = self.cleaned_data.get("interval_months")
+        if months is not None and months < 1:
+            raise forms.ValidationError("Interval musí být aspoň 1 měsíc.")
+        return months
+
+
+class InspectionForm(ExpenseFormMixin, StyledModelForm):
+    cost_cents = CzkField(label="Náklady (Kč)", required=False)
+    expense_account = expense_account_field()
+
+    class Meta:
+        model = Inspection
+        fields = ["done_date", "result", "contractor", "cost_cents", "next_due_date", "note"]
+        widgets = {
+            "done_date": DateInput(),
+            "next_due_date": DateInput(),
+            "note": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {"next_due_date": "Prázdné = datum provedení + interval."}
+
+    def __init__(self, *args: Any, prop: Property, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.setup_expense(prop)
