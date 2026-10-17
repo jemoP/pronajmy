@@ -164,3 +164,46 @@ def test_pay_charges_via_web(auth_client: Client, lease: Lease, rental_account: 
         {**form, "date_mode": "day", "day": "2026-10-10", "charges": [str(october.pk)]},
     )
     assert RentPayment.objects.get(charge=october).entry.date == date(2026, 10, 10)  # type: ignore[union-attr]
+
+
+def test_deposit_paid_at_signing_on_ended_lease(lease: Lease, rental_account: Account) -> None:
+    """Jistota splatná při podpisu (před začátkem nájmu) jde zapsat dodatečně i na ukončenou
+    smlouvu a počítá se jako přijatá, i když je datum před začátkem sledování salda."""
+    lease.signed_date = date(2025, 12, 1)
+    lease.save()
+    end_lease(lease, date(2026, 6, 30), "dohoda")
+    ensure_charges(lease, TODAY)
+    deposit = lease.charges.get(kind=ChargeKind.DEPOSIT)
+    assert deposit.due_date == date(2025, 12, 1)
+    (entry,) = pay(lease, rental_account, deposit)
+    assert entry.date == date(2025, 12, 1)
+    balance = lease_balance(lease, TODAY)
+    assert balance.deposit.received == 3_600_000 and balance.deposit.held == 3_600_000
+    assert state(lease, deposit) == (0, 1)
+    assert balance.paid == 0  # saldo jistota neovlivní
+
+
+def test_deposit_payment_before_start_counts(lease: Lease, rental_account: Account) -> None:
+    day = date(2025, 12, 1)  # před začátkem nájmu 1. 1. 2026
+    record_payment(
+        lease, day=day, amount=0, deposit_amount=3_600_000, account_id=rental_account.pk, today=day
+    )
+    assert lease_balance(lease, TODAY).deposit.received == 3_600_000
+
+
+def test_rent_before_tracking_still_rejected(lease: Lease, rental_account: Account) -> None:
+    january = charge(lease, ChargeKind.RENT, 1)
+    with pytest.raises(ValidationError, match="před začátkem sledování"):
+        pay(lease, rental_account, january, day=date(2025, 12, 31))
+
+
+def test_reload_after_failed_action_returns_to_lease(
+    auth_client: Client, lease: Lease, rental_account: Account
+) -> None:
+    form = {"date_mode": "day", "account": str(rental_account.pk)}  # chybí datum
+    response = auth_client.post(f"/leases/{lease.pk}/charges/pay", form)
+    assert response.status_code == 200 and "Zadej datum platby." in response.content.decode()
+    assert response["HX-Push-Url"] == f"/leases/{lease.pk}"
+    for action in ("charges/pay", "payment", "offset", "end", "payout/REFUND"):
+        reload = auth_client.get(f"/leases/{lease.pk}/{action}")
+        assert reload.status_code == 302 and reload["Location"] == f"/leases/{lease.pk}", action

@@ -178,7 +178,10 @@ class LeaseBalance:
 
 
 def counted(payment: RentPayment, start: date) -> bool:
-    """Do salda patří platby od začátku sledování."""
+    """Do salda patří platby od začátku sledování. Jistota se sleduje mimo saldo, a proto
+    vždy – typicky se platí při podpisu, tedy před začátkem nájmu."""
+    if payment.kind in (PaymentKind.DEPOSIT, PaymentKind.DEPOSIT_RETURN):
+        return True
     paid_on = payment.paid_on
     return paid_on is not None and paid_on >= start
 

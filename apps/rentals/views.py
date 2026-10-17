@@ -3,6 +3,7 @@ předpisy, platby a jistota (P06, P07)."""
 
 from collections.abc import Callable
 from datetime import date
+from functools import wraps
 from typing import Any
 
 from django import forms
@@ -420,7 +421,7 @@ def render_lease(request: HttpRequest, lease: Lease, **failed: forms.BaseForm) -
     }
     page_forms.update(failed)
     payments = sorted(lease.payments.all(), key=lambda p: (p.paid_on or today, p.pk), reverse=True)
-    return render(
+    response = render(
         request,
         "rentals/lease_detail.html",
         {
@@ -444,6 +445,23 @@ def render_lease(request: HttpRequest, lease: Lease, **failed: forms.BaseForm) -
             **page_forms,
         },
     )
+    if failed:
+        # Formulář s chybou se vykreslí na adrese akce; htmx ukáže adresu smlouvy.
+        response["HX-Push-Url"] = lease_url(lease)
+    return response
+
+
+def lease_post(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+    """Akce na smlouvě jen přes POST. Po chybě formuláře zůstane v prohlížeči adresa akce –
+    její obnovení (GET) vrátí na detail smlouvy místo chyby 405."""
+
+    @wraps(view)
+    def wrapper(request: HttpRequest, pk: int, *args: Any, **kwargs: Any) -> HttpResponse:
+        if request.method != "POST":
+            return redirect("rentals:lease", pk)
+        return view(request, pk, *args, **kwargs)
+
+    return wrapper
 
 
 def lease_detail(request: HttpRequest, pk: int) -> HttpResponse:
@@ -470,7 +488,7 @@ def lease_action(
     return render_lease(request, lease, **{form_name: form})
 
 
-@require_POST
+@lease_post
 def lease_end_view(request: HttpRequest, pk: int) -> HttpResponse:
     lease = get_lease(pk)
     today = timezone.localdate()
@@ -486,7 +504,7 @@ def lease_end_view(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
-@require_POST
+@lease_post
 def lease_payment(request: HttpRequest, pk: int) -> HttpResponse:
     lease = get_lease(pk)
     today = timezone.localdate()
@@ -508,7 +526,7 @@ def lease_payment(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
-@require_POST
+@lease_post
 def lease_pay_charges(request: HttpRequest, pk: int) -> HttpResponse:
     """Platba z předpisů (ZM-005): tlačítko u řádku (single) nebo označené předpisy."""
     lease = get_lease(pk)
@@ -539,7 +557,7 @@ def lease_pay_charges(request: HttpRequest, pk: int) -> HttpResponse:
     return render_lease(request, lease, charge_pay_form=form)
 
 
-@require_POST
+@lease_post
 def lease_payout(request: HttpRequest, pk: int, kind: str) -> HttpResponse:
     if kind not in (PaymentKind.REFUND, PaymentKind.DEPOSIT_RETURN):
         raise Http404
@@ -563,7 +581,7 @@ def lease_payout(request: HttpRequest, pk: int, kind: str) -> HttpResponse:
     )
 
 
-@require_POST
+@lease_post
 def lease_offset(request: HttpRequest, pk: int) -> HttpResponse:
     lease = get_lease(pk)
     return lease_action(
