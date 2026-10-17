@@ -2,6 +2,7 @@
 <a href="{% url 'rentals:properties' %}" class="{{ cls }}{% if nav == 'properties' %} font-semibold underline{% endif %}">Byty</a>
 <a href="{% url 'rentals:tenants' %}" class="{{ cls }}{% if nav == 'tenants' %} font-semibold underline{% endif %}">Nájemníci</a>
 <a href="{% url 'rentals:repairs' %}" class="{{ cls }}{% if nav == 'maintenance' %} font-semibold underline{% endif %}">Údržba</a>
+<a href="{% url 'rentals:report' %}" class="{{ cls }}{% if nav == 'report' %} font-semibold underline{% endif %}">Výkaz</a>
 <a href="{% url 'money:entries' %}" class="{{ cls }}{% if nav == 'entries' %} font-semibold underline{% endif %}">Pohyby</a>
 <a href="{% url 'money:accounts' %}" class="{{ cls }}{% if nav == 'accounts' %} font-semibold underline{% endif %}">Účty</a>
 <a href="{% url 'money:categories' %}" class="{{ cls }}{% if nav == 'categories' %} font-semibold underline{% endif %}">Číselníky</a>

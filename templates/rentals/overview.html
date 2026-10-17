@@ -3,6 +3,17 @@
 {% block content %}
 <h1 class="mb-4 text-2xl font-bold">Přehled pronájmů</h1>
 
+<section class="mb-6">
+  <h2 class="mb-2 text-xl font-semibold">Upozornění{% if rental_alerts %} ({{ rental_alerts|length }}){% endif %}</h2>
+  {% if rental_alerts %}
+  <ul class="space-y-2" aria-label="Upozornění">
+    {% for alert in rental_alerts %}{% include "includes/alert.html" %}{% endfor %}
+  </ul>
+  {% else %}
+  <p class="notice-ok"><span aria-hidden="true">✓</span> Žádná upozornění.</p>
+  {% endif %}
+</section>
+
 {% if debtors %}
 <section class="mb-6">
   <h2 class="mb-2 text-xl font-semibold"><span aria-hidden="true" style="color: var(--status-over)">✕</span> Po splatnosti celkem {{ overdue_total|czk }}</h2>

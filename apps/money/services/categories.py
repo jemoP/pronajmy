@@ -33,6 +33,7 @@ class CategoryInput:
     kind: str
     sort: int
     active: bool
+    taxable: bool = True
 
 
 def save_category(category: Category | None, data: CategoryInput) -> Category:
@@ -60,6 +61,7 @@ def save_category(category: Category | None, data: CategoryInput) -> Category:
     category.kind = data.kind
     category.sort = data.sort
     category.active = data.active
+    category.taxable = data.taxable
     category.save()
     return category
 

@@ -1,0 +1,8 @@
+{# Graf z JSON dat; vykreslí ho static/js/charts.js. Hodnoty jsou vždy i v tabulce pod grafem. #}
+<figure class="card">
+  <figcaption class="mb-2 font-semibold">{{ title }}</figcaption>
+  <div class="relative w-full" style="height: {{ height|default:320 }}px">
+    <canvas data-chart="{{ id }}" role="img" aria-label="{{ title }} – hodnoty jsou v tabulce níže"></canvas>
+  </div>
+  {{ spec|json_script:id }}
+</figure>

@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-004 – Služby mimo podklad pro daně
+- **Datum:** 2026-10-17
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** zálohy na služby nájemník platí za služby, které pronajímatel jen přeposílá dodavatelům; do příjmů z nájmu pro daně nepatří.
+- **Popis:** účel má příznak „počítat do daní“ (`taxable`). Výchozí účely Zálohy na služby, Vyúčtování služeb (nedoplatky i vrácené přeplatky) a náklad Služby ho mají vypnutý, ostatní zapnutý; u každého účelu jde změnit v Číselníky › Účely. Podklad pro daňové přiznání (P13) počítá příjmy, skutečné výdaje i paušál jen z účelů s příznakem a ukazuje, kolik bylo vyřazeno. Výkaz a výsledek se nemění.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Datový model – Peníze, Funkční požadavky P13).
+- **Dopad na data:** nový sloupec `category.taxable` (výchozí ano), datová migrace vypne příznak u kódů SERVICES, SETTLEMENT a UTILITIES.
+- **Implementováno:** 2026-10-17, větev feature/etapa-4
+
 ## ZM-003 – Vrácení přeplatku snižuje příjmy
 - **Datum:** 2026-10-17
 - **Stav:** hotovo
