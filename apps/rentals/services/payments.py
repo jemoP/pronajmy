@@ -176,11 +176,12 @@ def pay_charges(
         if state.open_cents <= 0:
             raise ValidationError({"charges": f"Předpis {label} nemá nic k zaplacení."})
         paid_on = day or min(charge.due_date, today)
-        if paid_on < start:
+        deposit = charge.kind == ChargeKind.DEPOSIT
+        # Jistota je mimo saldo – smí být zaplacená i před začátkem sledování (při podpisu).
+        if paid_on < start and not deposit:
             raise ValidationError(
                 {"day": f"Datum platby {label} je před začátkem sledování salda."}
             )
-        deposit = charge.kind == ChargeKind.DEPOSIT
         entry = _entry(
             lease,
             day=paid_on,
