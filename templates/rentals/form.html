@@ -4,6 +4,7 @@
 <section class="card">
   <h1 class="mb-3 text-lg font-bold">{{ title }}</h1>
   {% if form.errors %}<p class="notice-error mb-3">Nebylo uloženo – oprav zvýrazněná pole.</p>{% endif %}
+  {% if entry %}<p class="notice-ok mb-3">Náklad je zapsaný: <a class="link" href="{% url 'money:entry_edit' entry.pk %}">{{ entry.date|cz_date }} · {{ entry.amount_cents|czk }}</a></p>{% endif %}
   <form method="post" class="space-y-4">
     {% csrf_token %}
     {% include "rentals/includes/form_fields.html" %}
@@ -12,5 +13,12 @@
       <a href="{{ back }}" class="btn btn-secondary">Zpět</a>
     </div>
   </form>
+  {% if delete_url %}
+  <form method="post" action="{{ delete_url }}" class="mt-6 border-t border-slate-200 pt-4" hx-confirm="{{ delete_confirm }}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Smazat</button>
+  </form>
+  {% endif %}
 </section>
+{% if attachments %}<div class="mt-6">{% include "rentals/includes/attachments.html" %}</div>{% endif %}
 {% endblock %}

@@ -1,0 +1,5 @@
+{# Stav plánu revize – vždy ikona + text. #}
+{% if not s.due %}<span class="muted">bez termínu</span>
+{% elif s.overdue %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> po termínu ({{ s.due|cz_date }})
+{% elif s.soon %}<span aria-hidden="true" style="color: var(--status-warning)">⚠</span> {{ s.due|cz_date }} – za {{ s.days_left }} dní
+{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> {{ s.due|cz_date }}{% endif %}

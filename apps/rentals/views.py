@@ -42,6 +42,7 @@ from apps.rentals.models import (
     RentPayment,
     Tenant,
 )
+from apps.rentals.services.attachments import attachments_block
 from apps.rentals.services.charges import (
     BALANCE_PREFETCH,
     ensure_all_charges,
@@ -58,6 +59,7 @@ from apps.rentals.services.leases import (
     terms_at,
     terms_history,
 )
+from apps.rentals.services.maintenance import plan_states
 from apps.rentals.services.payments import (
     end_with_settlement,
     link_entry,
@@ -90,11 +92,26 @@ def form_page(
     title: str,
     back: str,
     submit: str = "Uložit",
+    attachments: dict[str, Any] | None = None,
+    entry: Entry | None = None,
+    delete_url: str | None = None,
+    delete_confirm: str = "",
 ) -> HttpResponse:
+    """Obecná stránka formuláře; volitelně s přílohami, odkazem na náklad a smazáním."""
     return render(
         request,
         "rentals/form.html",
-        {"nav": nav, "form": form, "title": title, "back": back, "submit": submit},
+        {
+            "nav": nav,
+            "form": form,
+            "title": title,
+            "back": back,
+            "submit": submit,
+            "attachments": attachments,
+            "entry": entry,
+            "delete_url": delete_url,
+            "delete_confirm": delete_confirm,
+        },
     )
 
 
@@ -258,6 +275,8 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
         {"lease": item, "tenants": tenant_names(item), "end": lease_end(item)}
         for item in prop.leases.all()
     ]
+    repairs = prop.repairs.order_by("-reported_date", "-id")
+    communications = prop.communications.select_related("tenant").order_by("-occurred_at")
     entries = (
         Entry.objects.filter(property=prop)
         .select_related("category", "account")
@@ -277,6 +296,9 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "leases": leases,
             "entries": entries,
             "today": today,
+            "plans": plan_states(today, prop),
+            "repairs": repairs[:20],
+            "communications": communications[:20],
             "result": result_for(date(today.year, 1, 1), date(today.year, 12, 31), today, prop.pk),
         },
     )
@@ -397,6 +419,7 @@ def render_lease(request: HttpRequest, lease: Lease, **failed: forms.BaseForm) -
             "charges": list(reversed(balance.charges)),
             "payments": payments,
             "suggestions": suggestions(lease, today),
+            "attachments": attachments_block("lease", lease),
             "open_section": next(iter(failed), ""),
             **page_forms,
         },
@@ -569,7 +592,14 @@ def amendment_form(request: HttpRequest, lease_pk: int, pk: int | None = None) -
             messages.success(request, "Dodatek uložen.")
             return redirect("rentals:lease", lease.pk)
     title = f"Úprava dodatku – {lease}" if pk else f"Nový dodatek – {lease}"
-    return form_page(request, form, nav="properties", title=title, back=lease_url(lease))
+    return form_page(
+        request,
+        form,
+        nav="properties",
+        title=title,
+        back=lease_url(lease),
+        attachments=attachments_block("amendment", amendment) if pk else None,
+    )
 
 
 @require_POST

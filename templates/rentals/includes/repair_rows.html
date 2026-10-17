@@ -1,0 +1,11 @@
+{% for r in items %}
+<tr>
+  <td class="whitespace-nowrap">{{ r.reported_date|cz_date }}</td>
+  {% if show_property %}<td><a class="link" href="{% url 'rentals:property' r.property_id %}">{{ r.property.name }}</a></td>{% endif %}
+  <td><a class="link" href="{% url 'rentals:repair_edit' r.pk %}">{{ r.title }}</a>{% if r.contractor %}<div class="text-xs muted">{{ r.contractor }}</div>{% endif %}</td>
+  <td>{{ r.get_status_display }}</td>
+  <td class="amount">{% if r.cost_cents is not None %}{{ r.cost_cents|czk }}{% endif %}{% if r.paid_by != 'OWNER' %}<div class="text-xs muted">platí {{ r.get_paid_by_display }}</div>{% endif %}</td>
+</tr>
+{% empty %}
+<tr><td colspan="{% if show_property %}5{% else %}4{% endif %}">Žádné opravy.</td></tr>
+{% endfor %}

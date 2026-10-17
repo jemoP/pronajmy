@@ -2,6 +2,8 @@
 Částky jsou int v haléřích (pole *_cents)."""
 
 import datetime
+from pathlib import Path
+from uuid import uuid4
 
 from django.db import models
 from django.db.models import Q
@@ -260,3 +262,274 @@ class RentPayment(models.Model):
     @property
     def paid_on(self) -> datetime.date | None:
         return self.entry.date if self.entry else self.date
+
+
+class Channel(models.TextChoices):
+    PHONE = "PHONE", "telefon"
+    EMAIL = "EMAIL", "e-mail"
+    SMS = "SMS", "SMS"
+    IN_PERSON = "IN_PERSON", "osobně"
+    LETTER = "LETTER", "dopis"
+    OTHER = "OTHER", "jinak"
+
+
+class Direction(models.TextChoices):
+    IN = "IN", "příchozí"
+    OUT = "OUT", "odchozí"
+
+
+class Communication(models.Model):
+    """Záznam komunikace s nájemníkem; volitelný termín vyřízení."""
+
+    property = models.ForeignKey(
+        Property,
+        models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="communications",
+        verbose_name="byt",
+    )
+    lease = models.ForeignKey(
+        Lease,
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="communications",
+        verbose_name="smlouva",
+    )
+    tenant = models.ForeignKey(
+        Tenant,
+        models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="communications",
+        verbose_name="nájemník",
+    )
+    occurred_at = models.DateTimeField("kdy")
+    channel = models.CharField("kanál", max_length=10, choices=Channel.choices)
+    direction = models.CharField("směr", max_length=3, choices=Direction.choices)
+    subject = models.CharField("předmět", max_length=200)
+    text = models.TextField("text", blank=True)
+    follow_up_date = models.DateField("vyřídit do", null=True, blank=True)
+    follow_up_done = models.BooleanField("vyřízeno", default=False)
+
+    class Meta:
+        db_table = "communication"
+        verbose_name = "komunikace"
+        verbose_name_plural = "komunikace"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(property__isnull=False)
+                | Q(lease__isnull=False)
+                | Q(tenant__isnull=False),
+                name="communication_has_subject",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.subject
+
+
+class RepairStatus(models.TextChoices):
+    REPORTED = "REPORTED", "Nahlášeno"
+    ORDERED = "ORDERED", "Objednáno"
+    DONE = "DONE", "Hotovo"
+    CANCELLED = "CANCELLED", "Zrušeno"
+
+
+OPEN_REPAIR = (RepairStatus.REPORTED, RepairStatus.ORDERED)
+
+
+class PaidBy(models.TextChoices):
+    OWNER = "OWNER", "pronajímatel"
+    TENANT = "TENANT", "nájemce"
+    INSURANCE = "INSURANCE", "pojišťovna"
+
+
+class Repair(models.Model):
+    """Oprava / závada; náklad pronajímatele je pohyb, oprava na něj jen odkazuje."""
+
+    property = models.ForeignKey(
+        Property, models.PROTECT, related_name="repairs", verbose_name="byt"
+    )
+    lease = models.ForeignKey(
+        Lease,
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="repairs",
+        verbose_name="smlouva",
+    )
+    reported_date = models.DateField("nahlášeno")
+    reported_by = models.CharField("nahlásil", max_length=200, blank=True)
+    title = models.CharField("závada / oprava", max_length=200)
+    description = models.TextField("popis", blank=True)
+    status = models.CharField(
+        "stav", max_length=10, choices=RepairStatus.choices, default=RepairStatus.REPORTED
+    )
+    contractor = models.CharField("dodavatel", max_length=200, blank=True)
+    done_date = models.DateField("hotovo dne", null=True, blank=True)
+    cost_cents = models.BigIntegerField("náklady (haléře)", null=True, blank=True)
+    paid_by = models.CharField("platí", max_length=10, choices=PaidBy.choices, default=PaidBy.OWNER)
+    entry = models.ForeignKey(Entry, models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        db_table = "repair"
+        verbose_name = "oprava"
+        verbose_name_plural = "opravy"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(cost_cents__isnull=True) | Q(cost_cents__gte=0),
+                name="repair_cost_not_negative",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=RepairStatus.values), name="repair_status_valid"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class InspectionType(models.Model):
+    """Druh pravidelné revize; výchozí intervaly jsou jen návrh."""
+
+    name = models.CharField("název", max_length=200, unique=True)
+    interval_months = models.PositiveSmallIntegerField("interval (měsíce)")
+    remind_days = models.PositiveSmallIntegerField("upozornit dní předem", default=30)
+    active = models.BooleanField("aktivní", default=True)
+    note = models.TextField("poznámka", blank=True)
+
+    class Meta:
+        db_table = "inspection_type"
+        verbose_name = "druh revize"
+        verbose_name_plural = "druhy revizí"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(interval_months__gte=1), name="inspection_type_interval_positive"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class InspectionPlan(models.Model):
+    """Co a jak často se v bytě kontroluje."""
+
+    property = models.ForeignKey(
+        Property, models.PROTECT, related_name="inspection_plans", verbose_name="byt"
+    )
+    type = models.ForeignKey(
+        InspectionType, models.PROTECT, related_name="plans", verbose_name="druh revize"
+    )
+    device = models.CharField("zařízení", max_length=200, blank=True)
+    # NULL = interval podle druhu revize.
+    interval_months = models.PositiveSmallIntegerField("interval (měsíce)", null=True, blank=True)
+    first_due_date = models.DateField("první termín", null=True, blank=True)
+    active = models.BooleanField("aktivní", default=True)
+    note = models.TextField("poznámka", blank=True)
+
+    class Meta:
+        db_table = "inspection_plan"
+        verbose_name = "plán revize"
+        verbose_name_plural = "plány revizí"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(interval_months__isnull=True) | Q(interval_months__gte=1),
+                name="inspection_plan_interval_positive",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.type} – {self.device}" if self.device else str(self.type)
+
+
+class InspectionResult(models.TextChoices):
+    OK = "OK", "bez závad"
+    DEFECTS = "DEFECTS", "se závadami"
+    FAILED = "FAILED", "nevyhovuje"
+
+
+class Inspection(models.Model):
+    """Provedená revize; next_due_date = datum provedení + interval (jde změnit)."""
+
+    plan = models.ForeignKey(InspectionPlan, models.PROTECT, related_name="inspections")
+    done_date = models.DateField("provedeno")
+    next_due_date = models.DateField("příští termín", null=True, blank=True)
+    result = models.CharField("výsledek", max_length=10, choices=InspectionResult.choices)
+    contractor = models.CharField("firma / technik", max_length=200, blank=True)
+    cost_cents = models.BigIntegerField("náklady (haléře)", null=True, blank=True)
+    entry = models.ForeignKey(Entry, models.SET_NULL, null=True, blank=True, related_name="+")
+    note = models.TextField("poznámka", blank=True)
+
+    class Meta:
+        db_table = "inspection"
+        verbose_name = "revize"
+        verbose_name_plural = "revize"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(cost_cents__isnull=True) | Q(cost_cents__gte=0),
+                name="inspection_cost_not_negative",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.plan} {format_date(self.done_date)}"
+
+
+def attachment_path(instance: "Attachment", filename: str) -> str:
+    """Soubor pod náhodným jménem – původní název je jen v databázi."""
+    return f"rentals/{uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+ATTACHMENT_OWNERS = ("lease", "amendment", "communication", "repair", "inspection")
+
+
+def _exactly_one(fields: tuple[str, ...]) -> Q:
+    result = Q()
+    for owner in fields:
+        case = Q(**{f"{owner}__isnull": False})
+        for other in fields:
+            if other != owner:
+                case &= Q(**{f"{other}__isnull": True})
+        result |= case
+    return result
+
+
+class Attachment(models.Model):
+    """Příloha (sken smlouvy, protokol, foto) k právě jednomu záznamu."""
+
+    lease = models.ForeignKey(
+        Lease, models.CASCADE, null=True, blank=True, related_name="attachments"
+    )
+    amendment = models.ForeignKey(
+        LeaseAmendment, models.CASCADE, null=True, blank=True, related_name="attachments"
+    )
+    communication = models.ForeignKey(
+        Communication, models.CASCADE, null=True, blank=True, related_name="attachments"
+    )
+    repair = models.ForeignKey(
+        Repair, models.CASCADE, null=True, blank=True, related_name="attachments"
+    )
+    inspection = models.ForeignKey(
+        Inspection, models.CASCADE, null=True, blank=True, related_name="attachments"
+    )
+    file = models.FileField("soubor", upload_to=attachment_path)
+    original_name = models.CharField("název souboru", max_length=255)
+    content_type = models.CharField("typ", max_length=100)
+    size = models.PositiveIntegerField("velikost (B)")
+    uploaded_at = models.DateTimeField("nahráno", auto_now_add=True)
+
+    class Meta:
+        db_table = "attachment"
+        verbose_name = "příloha"
+        verbose_name_plural = "přílohy"
+        constraints = [
+            models.CheckConstraint(
+                condition=_exactly_one(ATTACHMENT_OWNERS), name="attachment_one_owner"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.original_name

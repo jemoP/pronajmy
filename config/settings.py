@@ -92,6 +92,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Přílohy (v .gitignore). Záměrně bez MEDIA_URL – soubory se stahují jen přes
 # přihlášený pohled, nikdy přímo z veřejné adresy.
 MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
+# Větší nahrávané soubory jdou na disk, ne do paměti.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # jeden uživatel: přihlášení na 30 dní

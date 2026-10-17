@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Revize{% endblock %}
+{% block content %}
+{% include "rentals/includes/maintenance_tabs.html" %}
+<p class="mb-3 text-sm muted">Plán revizí se zakládá na kartě bytu. Seřazeno podle příštího termínu.</p>
+<div class="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th>Byt</th><th>Revize</th><th>Naposledy</th><th>Příští termín</th><th></th></tr></thead>
+    <tbody>
+      {% for s in states %}
+      <tr>
+        <td><a class="link" href="{% url 'rentals:property' s.plan.property_id %}#revize">{{ s.plan.property.name }}</a></td>
+        <td>{{ s.plan }}</td>
+        <td class="whitespace-nowrap">{% if s.last %}{{ s.last.done_date|cz_date }} · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
+        <td class="whitespace-nowrap">{% include "rentals/includes/plan_status.html" %}</td>
+        <td class="text-right"><a class="link" href="{% url 'rentals:inspection_new' s.plan.pk %}">Zapsat revizi</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Žádné plány revizí.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-sm muted">Druhy revizí a jejich výchozí intervaly upravíš v <a class="link" href="{% url 'rentals:inspection_types' %}">Číselníky › Druhy revizí</a>.</p>
+{% endblock %}

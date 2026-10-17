@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Číselníky{% endblock %}
 {% block content %}
-<h1 class="mb-4 text-2xl font-bold">Účely pohybů</h1>
+{% include "includes/codelist_tabs.html" with tab="categories" %}
 
 <details class="card mb-4"{% if errors %} open{% endif %}>
   <summary class="cursor-pointer font-semibold">Nový účel</summary>

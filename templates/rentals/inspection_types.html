@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Druhy revizí{% endblock %}
+{% block content %}
+{% include "includes/codelist_tabs.html" %}
+<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+  <p class="text-sm muted">Výchozí intervaly jsou jen návrh – ověř je podle zařízení a předpisů.</p>
+  <a href="{% url 'rentals:inspection_type_new' %}" class="btn btn-secondary">Nový druh</a>
+</div>
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th>Druh</th><th class="amount">Interval</th><th class="amount">Upozornit předem</th><th></th></tr></thead>
+    <tbody>
+      {% for t in types %}
+      <tr class="{% if not t.active %}text-slate-500{% endif %}">
+        <td>{{ t.name }}{% if not t.active %} <span class="badge">neaktivní</span>{% endif %}</td>
+        <td class="amount">{{ t.interval_months }} měs.</td>
+        <td class="amount">{{ t.remind_days }} dní</td>
+        <td class="text-right"><a class="link" href="{% url 'rentals:inspection_type_edit' t.pk %}">Upravit</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Žádné druhy revizí.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
