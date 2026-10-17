@@ -62,14 +62,15 @@
 <p class="mb-2 flex items-center justify-end gap-2">{% include "includes/export_links.html" with url_name="money:entries_export" %}</p>
 <section class="mb-1 flex flex-wrap gap-x-8 gap-y-2">
   <div class="flex flex-col"><span class="text-sm muted">Pohybů</span><strong>{{ page.total_count }}</strong></div>
-  <div class="flex flex-col"><span class="text-sm muted">Příjmy</span><strong class="income tabular-nums">{{ page.sums|get:"INCOME"|default:0|czk }}</strong></div>
-  <div class="flex flex-col"><span class="text-sm muted">Náklady</span><strong class="expense tabular-nums">{{ page.sums|get:"EXPENSE"|default:0|czk }}</strong></div>
+  <div class="flex flex-col"><span class="text-sm muted">Příjmy</span><strong class="income tabular-nums">{{ page.result.income_cents|czk }}</strong></div>
+  <div class="flex flex-col"><span class="text-sm muted">Náklady</span><strong class="expense tabular-nums">{{ page.result.expense_cents|czk }}</strong></div>
+  <div class="flex flex-col"><span class="text-sm muted">Výsledek (zisk)</span><strong class="tabular-nums {% if page.result.profit_cents < 0 %}expense{% else %}income{% endif %}">{{ page.result.profit_cents|czk }}</strong></div>
+  <div class="flex flex-col"><span class="text-sm muted">Jistoty</span><strong class="tabular-nums">přijato {{ page.deposits|get:"INCOME"|default:0|czk }} · vráceno {{ page.deposits|get:"EXPENSE"|default:0|czk }}</strong></div>
   <div class="flex flex-col"><span class="text-sm muted">Převody</span><strong class="tabular-nums">{{ page.sums|get:"TRANSFER"|default:0|czk }}</strong></div>
   <div class="flex flex-col"><span class="text-sm muted">Výběry</span><strong class="tabular-nums">{{ page.sums|get:"WITHDRAWAL"|default:0|czk }}</strong></div>
   <div class="flex flex-col"><span class="text-sm muted">Vklady</span><strong class="tabular-nums">{{ page.sums|get:"DEPOSIT"|default:0|czk }}</strong></div>
-  <div class="flex flex-col"><span class="text-sm muted">Výsledek (zisk)</span><strong class="tabular-nums {% if page.result.profit_cents < 0 %}expense{% else %}income{% endif %}">{{ page.result.profit_cents|czk }}</strong></div>
 </section>
-<p class="mb-4 text-sm muted">Součty bez plánovaných pohybů{% if page.planned_count %} ({{ page.planned_count }}){% endif %}; výsledek bez jistot, převodů, výběrů a vkladů.</p>
+<p class="mb-4 text-sm muted">Součty bez plánovaných pohybů{% if page.planned_count %} ({{ page.planned_count }}){% endif %}. Příjmy a náklady jsou položky výsledku (Příjmy − Náklady = Výsledek): bez jistot, převodů, výběrů a vkladů, vrácený přeplatek snižuje příjmy. Jistoty jsou uvedené zvlášť.</p>
 
 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
   <table class="table">
