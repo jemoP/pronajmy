@@ -3,6 +3,7 @@
 
 import datetime
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from django.db import models
@@ -476,6 +477,12 @@ class Inspection(models.Model):
 
     def __str__(self) -> str:
         return f"{self.plan} {format_date(self.done_date)}"
+
+
+def with_attachment_count[M: models.Model](qs: models.QuerySet[M]) -> models.QuerySet[M]:
+    """Počet příloh záznamu (attachment_count) pro příznak v seznamech."""
+    annotated = qs.annotate(attachment_count=models.Count("attachments", distinct=True))
+    return cast("models.QuerySet[M]", annotated)
 
 
 def attachment_path(instance: "Attachment", filename: str) -> str:

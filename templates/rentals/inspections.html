@@ -11,7 +11,7 @@
       <tr>
         <td><a class="link" href="{% url 'rentals:property' s.plan.property_id %}#revize">{{ s.plan.property.name }}</a></td>
         <td>{{ s.plan }}</td>
-        <td class="whitespace-nowrap">{% if s.last %}{{ s.last.done_date|cz_date }} · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
+        <td class="whitespace-nowrap">{% if s.last %}<a class="link" href="{% url 'rentals:inspection_edit' s.last.pk %}">{{ s.last.done_date|cz_date }}</a>{% include "rentals/includes/attachment_badge.html" with n=s.last.attachment_count %} · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
         <td class="whitespace-nowrap">{% include "rentals/includes/plan_status.html" %}</td>
         <td class="text-right"><a class="link" href="{% url 'rentals:inspection_new' s.plan.pk %}">Zapsat revizi</a></td>
       </tr>

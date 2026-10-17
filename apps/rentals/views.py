@@ -9,6 +9,7 @@ from django import forms
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -41,6 +42,7 @@ from apps.rentals.models import (
     RentCharge,
     RentPayment,
     Tenant,
+    with_attachment_count,
 )
 from apps.rentals.services.attachments import attachments_block
 from apps.rentals.services.charges import (
@@ -275,8 +277,12 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
         {"lease": item, "tenants": tenant_names(item), "end": lease_end(item)}
         for item in prop.leases.all()
     ]
-    repairs = prop.repairs.order_by("-reported_date", "-id")
-    communications = prop.communications.select_related("tenant").order_by("-occurred_at")
+    repairs = with_attachment_count(prop.repairs.all()).order_by("-reported_date", "-id")
+    communications = (
+        with_attachment_count(prop.communications.all())
+        .select_related("tenant")
+        .order_by("-occurred_at")
+    )
     entries = (
         Entry.objects.filter(property=prop)
         .select_related("category", "account")
@@ -376,9 +382,14 @@ def render_lease(request: HttpRequest, lease: Lease, **failed: forms.BaseForm) -
     """Detail smlouvy s předpisy, platbami a formuláři (failed = formulář s chybami)."""
     today = timezone.localdate()
     ensure_charges(lease, today)
+    # Dodatky s počtem příloh (příznak v historii podmínek).
+    amendments = Prefetch(
+        "amendments", queryset=with_attachment_count(LeaseAmendment.objects.all())
+    )
+    prefetch = [p for p in BALANCE_PREFETCH if p != "amendments"]
     lease = (
         Lease.objects.select_related("property__account", "account")
-        .prefetch_related(*BALANCE_PREFETCH, "lease_tenants__tenant")
+        .prefetch_related(*prefetch, amendments, "lease_tenants__tenant")
         .get(pk=lease.pk)
     )
     balance = lease_balance(lease, today)

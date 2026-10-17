@@ -29,6 +29,7 @@ from apps.rentals.models import (
     Property,
     Repair,
     TenantRole,
+    with_attachment_count,
 )
 from apps.rentals.services.attachments import add_attachment, attachments_block
 from apps.rentals.services.leases import current_lease, leases_with_details
@@ -57,7 +58,7 @@ def deleted(request: HttpRequest, message: str, back: str) -> HttpResponseRedire
 
 
 def communications(request: HttpRequest) -> HttpResponse:
-    recent = Communication.objects.select_related("property", "tenant").order_by("-occurred_at")
+    recent = with_attachment_count(Communication.objects.all()).select_related("property", "tenant")
     return render(
         request,
         "rentals/communications.html",
@@ -65,7 +66,7 @@ def communications(request: HttpRequest) -> HttpResponse:
             "nav": NAV,
             "tab": "communications",
             "open": open_follow_ups(),
-            "recent": recent[:50],
+            "recent": recent.order_by("-occurred_at")[:50],
             "today": timezone.localdate(),
         },
     )
@@ -136,7 +137,9 @@ def communication_delete(request: HttpRequest, pk: int) -> HttpResponseRedirect:
 
 
 def repairs(request: HttpRequest) -> HttpResponse:
-    done = Repair.objects.exclude(status__in=OPEN_REPAIR).select_related("property")
+    done = with_attachment_count(Repair.objects.exclude(status__in=OPEN_REPAIR)).select_related(
+        "property"
+    )
     return render(
         request,
         "rentals/repairs.html",

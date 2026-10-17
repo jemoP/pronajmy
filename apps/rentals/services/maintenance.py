@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 
 from apps.money.models import CategoryCode, Entry, EntryKind
 from apps.money.services.entries import EntryInput, create_entry
@@ -22,6 +22,7 @@ from apps.rentals.models import (
     Property,
     Repair,
     RepairStatus,
+    with_attachment_count,
 )
 from apps.rentals.services.payments import category_id
 
@@ -81,7 +82,9 @@ def save_repair(repair: Repair, *, account_id: int | None, today: date) -> Repai
 
 
 def open_repairs(prop: Property | None = None) -> QuerySet[Repair]:
-    qs = Repair.objects.filter(status__in=OPEN_REPAIR).select_related("property")
+    qs = with_attachment_count(Repair.objects.filter(status__in=OPEN_REPAIR)).select_related(
+        "property"
+    )
     if prop is not None:
         qs = qs.filter(property=prop)
     return qs.order_by("reported_date", "id")
@@ -123,7 +126,8 @@ def plan_states(today: date, prop: Property | None = None) -> list[PlanState]:
     qs = InspectionPlan.objects.filter(active=True).select_related("type", "property")
     if prop is not None:
         qs = qs.filter(property=prop)
-    states = [plan_state(p, today) for p in qs.prefetch_related("inspections")]
+    inspections = Prefetch("inspections", queryset=with_attachment_count(Inspection.objects.all()))
+    states = [plan_state(p, today) for p in qs.prefetch_related(inspections)]
     return sorted(states, key=lambda s: (s.due is None, s.due or date.max, s.plan.pk))
 
 
@@ -167,8 +171,8 @@ def save_inspection(inspection: Inspection, *, account_id: int | None) -> Inspec
 
 def open_follow_ups(prop: Property | None = None) -> QuerySet[Communication]:
     """Komunikace s termínem vyřízení, která ještě není vyřízená."""
-    qs = Communication.objects.filter(
-        follow_up_date__isnull=False, follow_up_done=False
+    qs = with_attachment_count(
+        Communication.objects.filter(follow_up_date__isnull=False, follow_up_done=False)
     ).select_related("property", "tenant", "lease__property")
     if prop is not None:
         qs = qs.filter(property=prop)

@@ -1,0 +1,2 @@
+{# Příznak příloh u záznamu v seznamu: ikona + počet, pro čtečky i text. n = attachment_count #}
+{% if n %} <span class="badge whitespace-nowrap" title="Přílohy: {{ n }}"><span aria-hidden="true">📎</span> {{ n }}<span class="sr-only"> {% if n == 1 %}příloha{% elif n < 5 %}přílohy{% else %}příloh{% endif %}</span></span>{% endif %}

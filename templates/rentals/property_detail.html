@@ -37,7 +37,7 @@
     <tbody>
       {% for r in leases %}
       <tr>
-        <td><a class="link" href="{% url 'rentals:lease' r.lease.pk %}">{{ r.lease.number|default:"bez čísla" }}</a></td>
+        <td><a class="link" href="{% url 'rentals:lease' r.lease.pk %}">{{ r.lease.number|default:"bez čísla" }}</a>{% include "rentals/includes/attachment_badge.html" with n=r.lease.attachment_count %}</td>
         <td>{{ r.tenants }}</td>
         <td class="whitespace-nowrap">{{ r.lease.start_date|cz_date }}</td>
         <td class="whitespace-nowrap">{% if r.end %}{{ r.end|cz_date }}{% else %}neurčitá{% endif %}</td>
@@ -101,7 +101,7 @@
         {% for s in plans %}
         <tr>
           <td><a class="link" href="{% url 'rentals:inspection_plan_edit' s.plan.pk %}">{{ s.plan }}</a></td>
-          <td class="whitespace-nowrap">{% if s.last %}<a class="link" href="{% url 'rentals:inspection_edit' s.last.pk %}">{{ s.last.done_date|cz_date }}</a> · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
+          <td class="whitespace-nowrap">{% if s.last %}<a class="link" href="{% url 'rentals:inspection_edit' s.last.pk %}">{{ s.last.done_date|cz_date }}</a>{% include "rentals/includes/attachment_badge.html" with n=s.last.attachment_count %} · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
           <td class="whitespace-nowrap">{% include "rentals/includes/plan_status.html" %}</td>
           <td class="text-right"><a class="link" href="{% url 'rentals:inspection_new' s.plan.pk %}">Zapsat revizi</a></td>
         </tr>

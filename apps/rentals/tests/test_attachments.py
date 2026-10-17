@@ -11,6 +11,9 @@ from django.test import Client
 from apps.rentals.models import (
     Attachment,
     Communication,
+    Inspection,
+    InspectionPlan,
+    InspectionType,
     Lease,
     LeaseAmendment,
     LeaseStatus,
@@ -126,3 +129,42 @@ def test_attachment_blocks_on_pages(auth_client: Client, lease: Lease) -> None:
     assert "PDF, JPG nebo PNG" not in new_page
     response = auth_client.post("/attachments/upload", {"owner": "nic", "id": "1"})
     assert response.status_code == 404
+
+
+def test_attachment_badge_in_lists(auth_client: Client, lease: Lease) -> None:
+    """Záznam s přílohami má v seznamech příznak 📎 s počtem."""
+    flat = lease.property
+    amendment = LeaseAmendment.objects.get(lease=lease)
+    repair = Repair.objects.create(property=flat, reported_date="2026-10-01", title="Kohoutek")
+    note = Communication.objects.create(
+        property=flat,
+        occurred_at="2026-10-10T10:00:00Z",
+        channel="PHONE",
+        direction="IN",
+        subject="Zvonek",
+    )
+    plan = InspectionPlan.objects.create(
+        property=flat, type=InspectionType.objects.get(name="Servis plynového kotle")
+    )
+    inspection = Inspection.objects.create(plan=plan, done_date="2025-11-01", result="OK")
+    for owner, obj in (
+        ("lease", lease),
+        ("amendment", amendment),
+        ("repair", repair),
+        ("communication", note),
+        ("inspection", inspection),
+    ):
+        service.add_attachment(owner, obj, SimpleUploadedFile("a.pdf", PDF))
+    service.add_attachment("repair", repair, SimpleUploadedFile("b.png", PNG))
+
+    card = auth_client.get(f"/properties/{flat.pk}").content.decode()
+    # smlouva, oprava (2), revize, komunikace
+    assert card.count("📎") == 4 and '2<span class="sr-only"> přílohy' in card
+    assert "📎" in auth_client.get("/maintenance/repairs").content.decode()
+    assert "📎" in auth_client.get("/maintenance/communications").content.decode()
+    assert "📎" in auth_client.get("/maintenance/inspections").content.decode()
+    lease_page = auth_client.get(f"/leases/{lease.pk}").content.decode()
+    assert "📎" in lease_page and '1<span class="sr-only"> příloha' in lease_page
+    # Bez příloh příznak není.
+    Attachment.objects.all().delete()
+    assert "📎" not in auth_client.get(f"/properties/{flat.pk}").content.decode()

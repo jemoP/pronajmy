@@ -184,7 +184,7 @@
       {% for p in history %}
       <tr>
         <td class="whitespace-nowrap">{{ p.start|cz_date }}</td>
-        <td>{% if p.amendment %}Dodatek {{ p.amendment.number }}{% if p.amendment.description %}<div class="text-sm muted">{{ p.amendment.description }}</div>{% endif %}{% else %}Smlouva{% endif %}</td>
+        <td>{% if p.amendment %}Dodatek {{ p.amendment.number }}{% include "rentals/includes/attachment_badge.html" with n=p.amendment.attachment_count %}{% if p.amendment.description %}<div class="text-sm muted">{{ p.amendment.description }}</div>{% endif %}{% else %}Smlouva{% endif %}</td>
         <td class="amount">{{ p.terms.rent_cents|czk }}</td>
         <td class="amount">{{ p.terms.services_cents|czk }}</td>
         <td class="whitespace-nowrap">{% if p.terms.end_date %}{{ p.terms.end_date|cz_date }}{% else %}neurčitá{% endif %}</td>
