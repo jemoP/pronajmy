@@ -58,3 +58,30 @@
     if (names) names.textContent = label(input.files);
   });
 })();
+
+// Platba z předpisů (ZM-005): počet a součet označených předpisů.
+(function () {
+  "use strict";
+  const czk = new Intl.NumberFormat("cs-CZ", { style: "currency", currency: "CZK" });
+
+  function summary(form) {
+    const boxes = document.querySelectorAll(`input[name="charges"][form="${form.id}"]:checked`);
+    const target = form.querySelector("[data-selected-summary]");
+    if (!target) return;
+    if (!boxes.length) {
+      target.textContent = "Označeno: nic";
+      return;
+    }
+    const total = Array.from(boxes).reduce((sum, box) => sum + Number(box.dataset.amount), 0);
+    const n = boxes.length;
+    const word = n === 1 ? "předpis" : n < 5 ? "předpisy" : "předpisů";
+    target.textContent = `Označeno: ${n} ${word}, ${czk.format(total / 100)}`;
+  }
+
+  document.addEventListener("change", (event) => {
+    const box = event.target;
+    if (!box.matches || !box.matches('input[name="charges"][form]')) return;
+    const form = document.getElementById(box.getAttribute("form"));
+    if (form) summary(form);
+  });
+})();

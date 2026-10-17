@@ -11,7 +11,7 @@ from django.db.models import F, Q, QuerySet, Sum
 from apps.core.formatting import format_czk
 from apps.money.models import Category, CategoryCode, Entry, EntryKind
 from apps.money.services.entries import EntryInput, create_entry
-from apps.rentals.models import ChargeKind, Lease, PaymentKind, RentPayment
+from apps.rentals.models import ChargeKind, Lease, PaymentKind, RentCharge, RentPayment
 from apps.rentals.services.charges import ensure_charges, lease_balance, tracking_start
 from apps.rentals.services.leases import end_lease, lease_end, tenant_names
 
@@ -123,6 +123,81 @@ def record_payment(
         )
         RentPayment.objects.create(
             lease=lease, entry=entry, kind=PaymentKind.DEPOSIT, amount_cents=deposit_amount
+        )
+        created.append(entry)
+    return created
+
+
+CHARGE_LABEL: dict[str, str] = {
+    ChargeKind.RENT: "Nájem",
+    ChargeKind.SERVICES: "Zálohy",
+    ChargeKind.SETTLEMENT: "Vyúčtování",
+    ChargeKind.DEPOSIT: "Jistota",
+    ChargeKind.OTHER: "Ostatní",
+}
+
+
+def charge_label(charge: RentCharge) -> str:
+    """„Nájem 9/2026“, u jednorázového předpisu „Vyúčtování (poznámka)“."""
+    label = CHARGE_LABEL.get(charge.kind, charge.get_kind_display())
+    if charge.period:
+        return f"{label} {charge.period.month}/{charge.period.year}"
+    return f"{label} ({charge.note})" if charge.note else label
+
+
+@transaction.atomic
+def pay_charges(
+    lease: Lease,
+    charge_ids: list[int],
+    *,
+    day: date | None,
+    account_id: int,
+    note: str = "",
+    today: date,
+) -> list[Entry]:
+    """Platba z předpisu (ZM-005): z každého předpisu samostatný příjem na jeho nezaplacenou
+    část s vazbou na předpis. Datum = splatnost (nejpozději dnes), nebo zvolené `day`.
+    Při jakékoli chybě se nezapíše nic."""
+    if not charge_ids:
+        raise ValidationError({"charges": "Označ aspoň jeden předpis."})
+    ensure_charges(lease, today)
+    balance = lease_balance(lease, today)
+    states = {s.charge.id: s for s in [*balance.charges, *balance.deposit_charges]}
+    unknown = set(charge_ids) - set(states)
+    if unknown:
+        raise ValidationError({"charges": "Předpis nepatří k této smlouvě."})
+    if day is not None and day > today:
+        raise ValidationError({"day": "Datum platby nemůže být v budoucnosti."})
+    start = tracking_start(lease)
+    created: list[Entry] = []
+    for state in sorted((states[i] for i in set(charge_ids)), key=lambda s: s.charge.due_date):
+        charge = state.charge
+        label = charge_label(charge)
+        if state.open_cents <= 0:
+            raise ValidationError({"charges": f"Předpis {label} nemá nic k zaplacení."})
+        paid_on = day or min(charge.due_date, today)
+        if paid_on < start:
+            raise ValidationError(
+                {"day": f"Datum platby {label} je před začátkem sledování salda."}
+            )
+        deposit = charge.kind == ChargeKind.DEPOSIT
+        entry = _entry(
+            lease,
+            day=paid_on,
+            kind=EntryKind.INCOME,
+            amount=state.open_cents,
+            account_id=account_id,
+            code=CategoryCode.DEPOSIT
+            if deposit
+            else CHARGE_CATEGORY.get(charge.kind, CategoryCode.OTHER_INCOME),
+            note=payment_note(lease, f"{label} – {note.strip()}" if note.strip() else label),
+        )
+        RentPayment.objects.create(
+            lease=lease,
+            entry=entry,
+            charge=charge,
+            kind=PaymentKind.DEPOSIT if deposit else PaymentKind.PAYMENT,
+            amount_cents=state.open_cents,
         )
         created.append(entry)
     return created

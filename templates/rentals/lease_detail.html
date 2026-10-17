@@ -116,32 +116,43 @@
   </div>
 </section>
 
-<section class="mb-6">
+<section class="mb-6" id="predpisy">
   <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
     <h2 class="text-xl font-semibold">Předpisy</h2>
     <a href="{% url 'rentals:charge_new' lease.pk %}" class="btn btn-secondary">Nový předpis (vyúčtování, poplatek)</a>
   </div>
   <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
     <table class="table">
-      <thead><tr><th>Splatnost</th><th>Druh</th><th class="amount">Částka</th><th class="amount">Nezaplaceno</th><th></th></tr></thead>
+      <thead><tr><th><span class="sr-only">Označit</span></th><th>Splatnost</th><th>Druh</th><th class="amount">Částka</th><th class="amount">Nezaplaceno</th><th></th></tr></thead>
       <tbody>
-        {% for s in charges %}
-        <tr>
-          <td class="whitespace-nowrap">{{ s.charge.due_date|cz_date }}</td>
-          <td>{{ s.charge.get_kind_display }}{% if s.charge.period %} {{ s.charge.period.month }}/{{ s.charge.period.year }}{% endif %}{% if s.charge.manual %} <span class="badge">ručně</span>{% endif %}{% if s.charge.note %}<div class="text-xs muted">{{ s.charge.note }}</div>{% endif %}</td>
-          <td class="amount{% if s.charge.amount_cents < 0 %} income{% endif %}">{{ s.charge.amount_cents|czk }}</td>
-          <td class="amount whitespace-nowrap">{% if s.overdue %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="expense">{{ s.open_cents|czk }}</span> <span class="text-xs muted">po splatnosti</span>{% elif s.open_cents %}{{ s.open_cents|czk }} <span class="text-xs muted">{% if s.open_cents < s.charge.amount_cents %}částečně zaplaceno{% else %}před splatností{% endif %}</span>{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> <span class="text-sm muted">zaplaceno</span>{% endif %}</td>
-          <td class="whitespace-nowrap text-right">
-            <a class="link" href="{% url 'rentals:charge_edit' lease.pk s.charge.pk %}">Upravit</a>
-            {% if s.charge.manual %}<form method="post" action="{% url 'rentals:charge_delete' lease.pk s.charge.pk %}" class="inline" hx-confirm="{% if s.charge.period %}Vrátit předpis na automatický?{% else %}Smazat předpis?{% endif %}">{% csrf_token %}<button type="submit" class="btn-link ml-2">{% if s.charge.period %}Obnovit{% else %}Smazat{% endif %}</button></form>{% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5">Žádné předpisy.</td></tr>
+        {% for s in deposit_charges %}{% include "rentals/includes/charge_row.html" %}{% endfor %}
+        {% for s in charges %}{% include "rentals/includes/charge_row.html" %}{% empty %}
+        {% if not deposit_charges %}<tr><td colspan="6">Žádné předpisy.</td></tr>{% endif %}
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% if has_open_charges %}
+  <form id="charge-pay" method="post" action="{% url 'rentals:lease_pay_charges' lease.pk %}" class="card mt-3 space-y-3" data-charge-pay>
+    {% csrf_token %}
+    <h3 class="font-semibold">Platba z předpisů</h3>
+    {% if charge_pay_form.non_field_errors %}<p class="notice-error">{{ charge_pay_form.non_field_errors.0 }}</p>{% endif %}
+    <p aria-live="polite"><strong data-selected-summary>Označeno: nic</strong></p>
+    <fieldset class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <legend class="mb-1 font-medium text-slate-700">Datum platby</legend>
+      <label class="flex items-center gap-2"><input type="radio" name="date_mode" value="due"{% if charge_pay_form.date_mode.value != 'day' %} checked{% endif %}> podle splatnosti předpisu (nejpozději dnes)</label>
+      <label class="flex items-center gap-2"><input type="radio" name="date_mode" value="day"{% if charge_pay_form.date_mode.value == 'day' %} checked{% endif %}> jedno datum:</label>
+      <input class="input w-auto" type="date" name="day" value="{{ charge_pay_form.day.value|default_if_none:'' }}" aria-label="Datum platby"{% if charge_pay_form.day.errors %} aria-invalid="true"{% endif %}>
+      {% if charge_pay_form.day.errors %}<span class="error w-full">{{ charge_pay_form.day.errors.0 }}</span>{% endif %}
+    </fieldset>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="field">Na účet {{ charge_pay_form.account }}{% if charge_pay_form.account.errors %}<span class="error">{{ charge_pay_form.account.errors.0 }}</span>{% endif %}</label>
+      <label class="field">Poznámka (nepovinná) {{ charge_pay_form.note }}</label>
+    </div>
+    <p class="text-sm muted">Z každého označeného předpisu vznikne samostatný příjem na jeho nezaplacenou část s vazbou na předpis. Tlačítko „Zaplaceno“ u řádku zapíše jen ten jeden předpis.</p>
+    <button type="submit" class="btn btn-primary">Zapsat platby za označené předpisy</button>
+  </form>
+  {% endif %}
 </section>
 
 <section class="mb-6 space-y-3">

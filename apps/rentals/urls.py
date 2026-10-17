@@ -22,6 +22,7 @@ urlpatterns = [
     path("leases/<int:pk>/end", views.lease_end_view, name="lease_end"),
     path("leases/<int:pk>/payment", views.lease_payment, name="lease_payment"),
     path("leases/<int:pk>/payout/<str:kind>", views.lease_payout, name="lease_payout"),
+    path("leases/<int:pk>/charges/pay", views.lease_pay_charges, name="lease_pay_charges"),
     path("leases/<int:pk>/offset", views.lease_offset, name="lease_offset"),
     path("leases/<int:pk>/link", views.lease_link, name="lease_link"),
     path(
