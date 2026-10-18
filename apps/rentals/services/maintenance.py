@@ -4,13 +4,13 @@ Náklady oprav a revizí jsou běžné pohyby (náklad s účelem podle kódu a 
 oprava i revize na pohyb jen odkazují.
 """
 
-import calendar
 from dataclasses import dataclass
 from datetime import date
 
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 
+from apps.core.dates import add_months
 from apps.money.models import CategoryCode, Entry, EntryKind
 from apps.money.services.entries import EntryInput, create_entry
 from apps.rentals.models import (
@@ -25,13 +25,6 @@ from apps.rentals.models import (
     with_attachment_count,
 )
 from apps.rentals.services.payments import category_id
-
-
-def add_months(day: date, months: int) -> date:
-    """Stejný den o N měsíců později; neexistující den → poslední den měsíce."""
-    index = day.month - 1 + months
-    year, month = day.year + index // 12, index % 12 + 1
-    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
 
 
 def expense(

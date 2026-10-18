@@ -1,4 +1,5 @@
-"""Upozornění (P11): nájem po splatnosti, konec smlouvy, revize, opravy, komunikace."""
+"""Upozornění (P11): nájem po splatnosti, konec smlouvy, revize, opravy, komunikace,
+platby dodavatelům (ZM-006)."""
 
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -6,6 +7,7 @@ from datetime import date, timedelta
 from django.urls import reverse
 
 from apps.core.formatting import format_czk, format_date
+from apps.money.services.payables import ensure_dues, payable_alerts
 from apps.rentals.models import Lease, LeaseStatus
 from apps.rentals.services.charges import BALANCE_PREFETCH, ensure_all_charges, lease_balance
 from apps.rentals.services.leases import lease_end, tenant_names
@@ -88,8 +90,15 @@ def maintenance_alerts(today: date) -> list[Alert]:
     return alerts
 
 
+def supplier_alerts(today: date) -> list[Alert]:
+    url = f"{reverse('money:payables')}#k-zaplaceni"
+    return [Alert(a.level, a.text, url, a.day) for a in payable_alerts(today)]
+
+
 def rental_alerts(today: date) -> list[Alert]:
-    """Upozornění seřazená: nejdřív po termínu, uvnitř podle data (nejstarší nahoře)."""
+    """Upozornění seřazená: nejdřív po termínu, uvnitř podle data (nejstarší nahoře).
+    Zároveň doplní předpisy nájmu a splátky plateb (automatické splátky zaplatí)."""
     ensure_all_charges(today)
-    alerts = lease_alerts(today) + maintenance_alerts(today)
+    ensure_dues(today)
+    alerts = lease_alerts(today) + maintenance_alerts(today) + supplier_alerts(today)
     return sorted(alerts, key=lambda a: (a.level != OVER, a.day))

@@ -135,6 +135,10 @@ class Entry(models.Model):
         verbose_name="byt",
     )
     note = models.TextField("poznámka", blank=True)
+    # Náklad vzniklý ze splátky předpisu platby (ZM-006); smazání nákladu splátku znovu otevře.
+    payable_due = models.ForeignKey(
+        "PayableDue", models.SET_NULL, null=True, blank=True, related_name="entries"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -165,3 +169,128 @@ class Entry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.date} {self.get_kind_display()} {self.amount_cents}"
+
+
+class PaymentMethod(models.TextChoices):
+    ORDER = "ORDER", "příkaz"
+    STANDING = "STANDING", "trvalý příkaz"
+    DIRECT_DEBIT = "DIRECT_DEBIT", "inkaso"
+    SIPO = "SIPO", "SIPO"
+    CASH = "CASH", "hotově"
+
+
+class Frequency(models.IntegerChoices):
+    MONTHLY = 1, "měsíčně"
+    QUARTERLY = 3, "čtvrtletně"
+    HALF_YEARLY = 6, "pololetně"
+    YEARLY = 12, "ročně"
+
+
+class Payable(models.Model):
+    """Předpis platby dodavateli s platností v čase (ZM-006)."""
+
+    name = models.CharField("název", max_length=200)
+    supplier = models.CharField("dodavatel", max_length=200, blank=True)
+    supplier_account = models.CharField("číslo účtu dodavatele", max_length=50, blank=True)
+    bank_code = models.CharField("kód banky", max_length=10, blank=True)
+    variable_symbol = models.CharField("variabilní symbol", max_length=10, blank=True)
+    specific_symbol = models.CharField(
+        "specifický symbol / spojovací číslo", max_length=20, blank=True
+    )
+    method = models.CharField(
+        "způsob platby", max_length=15, choices=PaymentMethod.choices, default=PaymentMethod.ORDER
+    )
+    account = models.ForeignKey(
+        Account, models.PROTECT, related_name="payables", verbose_name="z účtu"
+    )
+    frequency_months = models.PositiveSmallIntegerField(
+        "četnost", choices=Frequency.choices, default=Frequency.MONTHLY
+    )
+    due_day = models.PositiveSmallIntegerField("den splatnosti", default=15)
+    valid_from = models.DateField("platí od")
+    valid_to = models.DateField("platí do", null=True, blank=True)  # NULL = neurčitě
+    # Výchozí je zápis k potvrzení; automaticky jen tam, kde peníze odchází samy.
+    auto = models.BooleanField("zapisovat automaticky k datu splatnosti", default=False)
+    previous = models.ForeignKey(
+        "self", models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="navazuje na"
+    )
+    note = models.TextField("poznámka", blank=True)
+
+    class Meta:
+        db_table = "payable"
+        verbose_name = "předpis platby"
+        verbose_name_plural = "předpisy plateb"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(due_day__gte=1, due_day__lte=31), name="payable_due_day_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(frequency_months__in=Frequency.values), name="payable_frequency_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(method__in=PaymentMethod.values), name="payable_method_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(valid_to__isnull=True) | Q(valid_to__gte=F("valid_from")),
+                name="payable_valid_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class PayableItem(models.Model):
+    """Řádek rozpisu platby: účel (náklad), byt a částka."""
+
+    payable = models.ForeignKey(Payable, models.CASCADE, related_name="items")
+    category = models.ForeignKey(Category, models.PROTECT, related_name="+", verbose_name="účel")
+    property = models.ForeignKey(
+        "rentals.Property",
+        models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payable_items",
+        verbose_name="byt",
+    )
+    amount_cents = models.BigIntegerField("částka (haléře)")
+    label = models.CharField("popis", max_length=100, blank=True)
+
+    class Meta:
+        db_table = "payable_item"
+        verbose_name = "řádek předpisu platby"
+        verbose_name_plural = "řádky předpisu platby"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount_cents__gt=0), name="payable_item_amount_positive"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.label or str(self.category)
+
+
+class PayableDue(models.Model):
+    """Splátka předpisu platby; zaplacená = vznikl z ní aspoň jeden náklad."""
+
+    payable = models.ForeignKey(Payable, models.CASCADE, related_name="dues")
+    period = models.DateField("období")  # 1. den měsíce
+    due_date = models.DateField("splatnost")
+    # Jednorázově upravená částka (jen u předpisu s jedním řádkem); NULL = podle rozpisu.
+    amount_cents = models.BigIntegerField("upravená částka (haléře)", null=True, blank=True)
+    skipped = models.BooleanField("přeskočeno", default=False)
+
+    class Meta:
+        db_table = "payable_due"
+        verbose_name = "splátka"
+        verbose_name_plural = "splátky"
+        constraints = [
+            models.UniqueConstraint(fields=["payable", "period"], name="payable_due_unique"),
+            models.CheckConstraint(
+                condition=Q(amount_cents__isnull=True) | Q(amount_cents__gt=0),
+                name="payable_due_amount_positive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.payable} {self.period.month}/{self.period.year}"

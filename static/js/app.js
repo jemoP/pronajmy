@@ -59,13 +59,13 @@
   });
 })();
 
-// Platba z předpisů (ZM-005): počet a součet označených předpisů.
+// Platba z předpisů (ZM-005) a splátek (ZM-006): počet a součet označených položek.
 (function () {
   "use strict";
   const czk = new Intl.NumberFormat("cs-CZ", { style: "currency", currency: "CZK" });
 
   function summary(form) {
-    const boxes = document.querySelectorAll(`input[name="charges"][form="${form.id}"]:checked`);
+    const boxes = document.querySelectorAll(`input[data-amount][form="${form.id}"]:checked`);
     const target = form.querySelector("[data-selected-summary]");
     if (!target) return;
     if (!boxes.length) {
@@ -74,13 +74,14 @@
     }
     const total = Array.from(boxes).reduce((sum, box) => sum + Number(box.dataset.amount), 0);
     const n = boxes.length;
-    const word = n === 1 ? "předpis" : n < 5 ? "předpisy" : "předpisů";
+    const words = (form.dataset.words || "předpis,předpisy,předpisů").split(",");
+    const word = n === 1 ? words[0] : n < 5 ? words[1] : words[2];
     target.textContent = `Označeno: ${n} ${word}, ${czk.format(total / 100)}`;
   }
 
   document.addEventListener("change", (event) => {
     const box = event.target;
-    if (!box.matches || !box.matches('input[name="charges"][form]')) return;
+    if (!box.matches || !box.matches("input[data-amount][form]")) return;
     const form = document.getElementById(box.getAttribute("form"));
     if (form) summary(form);
   });

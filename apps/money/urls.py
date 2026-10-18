@@ -1,5 +1,6 @@
 from django.urls import path
 
+from . import payable_views as pv
 from . import views
 
 app_name = "money"
@@ -14,4 +15,14 @@ urlpatterns = [
     path("categories", views.categories, name="categories"),
     path("categories/<int:pk>/edit", views.category_edit, name="category_edit"),
     path("categories/<int:pk>/delete", views.category_delete, name="category_delete"),
+    # Platby dodavatelům (ZM-006)
+    path("payables", pv.payables, name="payables"),
+    path("payables/new", pv.payable_form, name="payable_new"),
+    path("payables/pay", pv.pay, name="payables_pay"),
+    path("payables/<int:pk>", pv.payable_detail, name="payable"),
+    path("payables/<int:pk>/edit", pv.payable_form, name="payable_edit"),
+    path("payables/<int:pk>/change", pv.payable_change, name="payable_change"),
+    path("payables/<int:pk>/delete", pv.payable_delete, name="payable_delete"),
+    path("dues/<int:pk>/skip", pv.due_skip, name="due_skip"),
+    path("dues/<int:pk>/amount", pv.due_amount_view, name="due_amount"),
 ]
