@@ -264,7 +264,8 @@ def accounts(request: HttpRequest) -> HttpResponse:
         request,
         "money/accounts.html",
         {
-            "nav": "accounts",
+            "nav": "categories",
+            "tab": "accounts",
             "rows": rows,
             "at": at,
             "include_inactive": include_inactive,
@@ -317,7 +318,7 @@ def account_form(request: HttpRequest, pk: int | None = None) -> HttpResponse:
     return render(
         request,
         "money/account_form.html",
-        {"nav": "accounts", "account": account, "values": values, "errors": errors},
+        {"nav": "categories", "account": account, "values": values, "errors": errors},
     )
 
 

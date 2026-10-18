@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Účty{% endblock %}
 {% block content %}
-<h1 class="mb-4 text-2xl font-bold">Účty</h1>
+{% include "includes/codelist_tabs.html" %}
 <form method="get" action="{% url 'money:accounts' %}" class="mb-2 flex flex-wrap items-end gap-3">
   <label class="field">Zůstatek k datu <input class="input" type="date" name="at" value="{{ at|date:'Y-m-d' }}"></label>
   <label class="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="inactive" value="1"{% if include_inactive %} checked{% endif %}> i neaktivní účty</label>

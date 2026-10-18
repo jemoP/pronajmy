@@ -185,3 +185,14 @@ def test_list_sums_match_result_and_show_deposits(
     assert f"15{nbsp}000,00{nbsp}Kč" in html  # výsledek
     assert f"přijato 36{nbsp}000,00{nbsp}Kč · vráceno 10{nbsp}000,00{nbsp}Kč" in html
     assert f"54{nbsp}000,00{nbsp}Kč" not in html  # dřívější součet všech příjmů
+
+
+def test_accounts_are_a_tab_of_code_lists(auth_client: Client, bank: Account) -> None:
+    html = auth_client.get("/accounts").content.decode()
+    assert (
+        '<nav class="mb-5 flex flex-wrap gap-x-6 border-b border-slate-200" aria-label="Číselníky">'
+        in html
+    )
+    assert 'href="/accounts" class="tab" aria-current="page">Účty</a>' in html
+    nav = auth_client.get("/categories").content.decode().split("<main")[0]
+    assert 'href="/accounts"' not in nav  # v hlavní navigaci už ne

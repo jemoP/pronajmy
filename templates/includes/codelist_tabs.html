@@ -1,5 +1,6 @@
 <h1 class="mb-3 text-2xl font-bold">Číselníky</h1>
 <nav class="mb-5 flex flex-wrap gap-x-6 border-b border-slate-200" aria-label="Číselníky">
+  <a href="{% url 'money:accounts' %}" class="tab"{% if tab == 'accounts' %} aria-current="page"{% endif %}>Účty</a>
   <a href="{% url 'money:categories' %}" class="tab"{% if tab == 'categories' %} aria-current="page"{% endif %}>Účely pohybů</a>
   <a href="{% url 'rentals:inspection_types' %}" class="tab"{% if tab == 'inspection_types' %} aria-current="page"{% endif %}>Druhy revizí</a>
 </nav>
