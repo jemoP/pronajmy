@@ -289,7 +289,12 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             Lease.objects.prefetch_related(*BALANCE_PREFETCH).get(pk=lease.pk), today
         )
     leases = [
-        {"lease": item, "tenants": tenant_names(item), "end": lease_end(item)}
+        {
+            "lease": item,
+            "tenants": tenant_names(item),
+            "end": lease_end(item),
+            "amendments": list(item.amendments.all()),
+        }
         for item in prop.leases.all()
     ]
     plans = plan_states(today, prop)
@@ -316,6 +321,7 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "tenants": [lt.tenant for lt in lease.lease_tenants.all()] if lease else [],
             "balance": balance,
             "leases": leases,
+            "amendments_count": sum(len(item.amendments.all()) for item in prop.leases.all()),
             "entries": entries,
             "today": today,
             "plans": plans,

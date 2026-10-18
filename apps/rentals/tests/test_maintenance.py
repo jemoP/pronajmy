@@ -280,3 +280,12 @@ def test_property_card_sections(auth_client: Client, lease: Lease) -> None:
     assert '<details id="smlouva" class="card-section" data-remember open>' in html
     assert '<details id="opravy" class="card-section" data-remember>' in html
     assert "otevřené: 1" in html and "Jan Nájemník" in html
+
+
+def test_property_card_lists_amendments_under_lease(auth_client: Client, lease: Lease) -> None:
+    html = auth_client.get(f"/properties/{lease.property_id}").content.decode()
+    section = html[html.index('<details id="smlouvy"') : html.index('<details id="platby"')]
+    assert "dodatků: 1" in section
+    lease_row, amendment_row = section.index("1/2026"), section.index("Dodatek 1")
+    assert lease_row < amendment_row  # dodatek pod svou smlouvou
+    assert "od 1. 7. 2026" in section and "nájem 16" in section and "beze změny" in section

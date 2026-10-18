@@ -35,7 +35,7 @@
 </details>
 
 <details id="smlouvy" class="card-section" data-remember>
-  <summary class="card-summary"><h2 class="text-xl font-semibold">Smlouvy</h2><span class="text-sm muted">{{ leases|length }}</span></summary>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Smlouvy</h2><span class="text-sm muted">{{ leases|length }}{% if amendments_count %} · dodatků: {{ amendments_count }}{% endif %}</span></summary>
   <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
     <table class="table">
       <thead><tr><th>Smlouva</th><th>Nájemníci</th><th>Od</th><th>Do</th><th>Stav</th></tr></thead>
@@ -48,6 +48,15 @@
           <td class="whitespace-nowrap">{% if r.end %}{{ r.end|cz_date }}{% else %}neurčitá{% endif %}</td>
           <td>{{ r.lease.get_status_display }}</td>
         </tr>
+        {% for a in r.amendments %}
+        <tr class="text-sm">
+          <td class="pl-8"><span aria-hidden="true" class="muted">↳</span> <a class="link" href="{% url 'rentals:amendment_edit' r.lease.pk a.pk %}">Dodatek {{ a.number|default:"bez čísla" }}</a>{% include "rentals/includes/attachment_badge.html" with n=a.attachment_count %}</td>
+          <td class="muted">{{ a.description|truncatechars:80 }}</td>
+          <td class="whitespace-nowrap">od {{ a.effective_date|cz_date }}</td>
+          <td class="whitespace-nowrap">{% if a.end_date %}{{ a.end_date|cz_date }}{% else %}<span class="muted">beze změny</span>{% endif %}</td>
+          <td>{% if a.rent_cents is not None %}nájem {{ a.rent_cents|czk }}{% endif %}{% if a.rent_cents is not None and a.services_cents is not None %}, {% endif %}{% if a.services_cents is not None %}zálohy {{ a.services_cents|czk }}{% endif %}{% if a.rent_cents is None and a.services_cents is None and not a.end_date %}<span class="muted">bez změny podmínek</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
         {% empty %}
         <tr><td colspan="5">Žádné smlouvy.</td></tr>
         {% endfor %}
