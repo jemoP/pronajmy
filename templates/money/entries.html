@@ -76,6 +76,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th class="w-8"><input type="checkbox" data-select-all="recategorize" aria-label="Označit všechny příjmy a náklady na stránce"></th>
         <th>{% sort_link "Datum" "date" %}</th>
         <th>Druh</th>
         <th>{% sort_link "Účel" "category" %}</th>
@@ -89,6 +90,7 @@
     <tbody>
       {% for e in page.rows %}
       <tr class="{% if e.date > today %}italic text-slate-500{% endif %}{% if e.id == saved_id %} !bg-yellow-100{% endif %}">
+        <td>{% if e.kind == 'INCOME' or e.kind == 'EXPENSE' %}<input type="checkbox" name="entries" value="{{ e.id }}" form="recategorize" aria-label="Označit pohyb {{ e.date|cz_date }} {{ e.amount_cents|czk }}">{% endif %}</td>
         <td class="whitespace-nowrap">{{ e.date|cz_date }}{% if e.date > today %} <span class="badge">plánováno</span>{% endif %}</td>
         <td>{{ e.get_kind_display }}</td>
         <td>{{ e.category.name|default:"–" }}</td>
@@ -102,11 +104,26 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="8">{% if filter.active %}Filtru neodpovídají žádné pohyby.{% else %}Zatím žádné pohyby.{% endif %}</td></tr>
+      <tr><td colspan="9">{% if filter.active %}Filtru neodpovídají žádné pohyby.{% else %}Zatím žádné pohyby.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+{% if page.rows %}
+<form id="recategorize" method="post" action="{% url 'money:entries_recategorize' %}" class="card mt-3 flex flex-wrap items-end gap-3">
+  {% csrf_token %}
+  <input type="hidden" name="back" value="{{ here }}">
+  <p class="w-full text-sm"><strong data-selected-count="recategorize">Označeno: nic</strong> <span class="muted">– hromadná změna účelu (jen příjmy a náklady; platí stejná pravidla jako při úpravě pohybu, zapíše se vše, nebo nic)</span></p>
+  <label class="field">Nový účel
+    <select class="input" name="category_id" required>
+      <option value="">— vyber účel —</option>
+      {% for c in all_categories %}<option value="{{ c.id }}">{{ c.name }} ({{ c.get_kind_display }})</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn btn-secondary">Změnit účel označených</button>
+</form>
+{% endif %}
 
 <nav class="my-6 flex justify-center gap-6" aria-label="Stránkování">
   {% if page.page > 1 %}<a class="link" href="{% url_with page=page.page|add:'-1' saved=None copy=None deleted=None %}">« Předchozí</a>{% endif %}

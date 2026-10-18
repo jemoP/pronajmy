@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Služby a energie {{ year }}{% endblock %}
+{% block content %}
+{% include "rentals/includes/report_tabs.html" %}
+
+<form method="get" class="mb-4 flex flex-wrap items-end gap-3">
+  <label class="field">Rok
+    <select class="input" name="year">{% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
+  </label>
+  <label class="field">Byt
+    <select class="input" name="property">
+      <option value="">Všechny</option>
+      {% for p in properties %}<option value="{{ p.pk }}"{% if p.pk == property_id %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn btn-primary">Zobrazit</button>
+  <span class="ml-auto flex items-center gap-2">{% include "includes/export_links.html" with url_name="rentals:report_services_export" %}</span>
+</form>
+<p class="mb-3 text-sm muted">Náklady na energie a služby proti zálohám na služby od nájemníků{% if is_current_year %} do dneška{% endif %}. Rozdíl = zálohy + vyúčtování − náklady; záporný rozdíl znamená, že zálohy náklady nepokrývají. Účely energií nastavíš v Číselnících, dosavadní „Služby“ převedeš v Pohybech hromadnou změnou účelu.</p>
+
+<section class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <div class="tile"><span class="text-sm muted">Náklady na služby {{ year }}</span><strong class="tile-value">{{ report.total.total|czk }}</strong>{% if report.previous.total %}<span class="text-sm muted">{{ report.total.total|change:report.previous.total }} proti {{ year|add:"-1" }}</span>{% endif %}</div>
+  <div class="tile"><span class="text-sm muted">Zálohy od nájemníků</span><strong class="tile-value">{{ report.total.advances|czk }}</strong></div>
+  <div class="tile"><span class="text-sm muted">Vyúčtování (nedoplatky − přeplatky)</span><strong class="tile-value">{{ report.total.settlement|czk }}</strong></div>
+  <div class="tile"><span class="text-sm muted">Rozdíl</span><strong class="tile-value">{% if report.total.difference < 0 %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="expense">{{ report.total.difference|czk }}</span>{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> {{ report.total.difference|czk }}{% endif %}</strong><span class="text-sm muted">{% if report.total.difference < 0 %}zálohy nepokrývají náklady{% else %}zálohy pokrývají náklady{% endif %}</span></div>
+</section>
+
+<div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead>
+      <tr><th>Měsíc</th>{% for c in report.columns %}<th class="amount">{{ c.name }}</th>{% endfor %}<th class="amount">Náklady celkem</th><th class="amount">Zálohy</th><th class="amount">Vyúčtování</th><th class="amount">Rozdíl</th></tr>
+    </thead>
+    <tbody>
+      {% for name, r in month_rows %}
+      <tr>
+        <td>{{ name }}</td>
+        {% for amount in r.costs %}<td class="amount">{% if amount %}{{ amount|czk }}{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}
+        <td class="amount font-semibold">{{ r.total|czk }}</td>
+        <td class="amount">{{ r.advances|czk }}</td>
+        <td class="amount">{% if r.settlement %}{{ r.settlement|czk }}{% else %}<span class="muted">–</span>{% endif %}</td>
+        <td class="amount{% if r.difference < 0 %} expense{% endif %}">{{ r.difference|czk }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><th>Celkem {{ year }}</th>{% for amount in report.total.costs %}<th class="amount">{{ amount|czk }}</th>{% endfor %}<th class="amount">{{ report.total.total|czk }}</th><th class="amount">{{ report.total.advances|czk }}</th><th class="amount">{{ report.total.settlement|czk }}</th><th class="amount">{{ report.total.difference|czk }}</th></tr>
+      <tr class="text-slate-600"><th>Celkem {{ year|add:"-1" }}</th>{% for amount in report.previous.costs %}<td class="amount">{{ amount|czk }}</td>{% endfor %}<td class="amount">{{ report.previous.total|czk }}</td><td class="amount">{{ report.previous.advances|czk }}</td><td class="amount">{{ report.previous.settlement|czk }}</td><td class="amount">{{ report.previous.difference|czk }}</td></tr>
+      <tr class="text-slate-600"><th>Změna</th>{% for current, previous in changes %}<td class="amount">{{ current|change:previous }}</td>{% endfor %}<td class="amount">{{ report.total.total|change:report.previous.total }}</td><td class="amount">{{ report.total.advances|change:report.previous.advances }}</td><td></td><td></td></tr>
+    </tfoot>
+  </table>
+</div>
+{% endblock %}

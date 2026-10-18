@@ -21,6 +21,7 @@ from apps.rentals.services.report import (
     report_years,
     years_overview,
 )
+from apps.rentals.services.services_report import ServicesReport, services_report
 
 
 def kc(cents: int) -> float:
@@ -158,3 +159,64 @@ def report_export(request: HttpRequest, fmt: str) -> HttpResponse:
     result = rental_report(year, today, property_id)
     tables = export_tables(result, years_overview(today, property_id))
     return export_response(fmt, tables, f"pronajmy-{year}")
+
+
+# --- Přehled služeb (ZM-007) --------------------------------------------------
+
+
+def services(request: HttpRequest) -> HttpResponse:
+    today = timezone.localdate()
+    year, property_id = report_params(request)
+    result = services_report(year, today, property_id)
+    changes = [
+        (current, previous)
+        for current, previous in zip(result.total.costs, result.previous.costs, strict=True)
+    ]
+    return render(
+        request,
+        "rentals/report_services.html",
+        {
+            "nav": "report",
+            "tab": "services",
+            "report": result,
+            "year": year,
+            "years": report_years(today),
+            "property_id": property_id,
+            "properties": sorted(Property.objects.all(), key=lambda p: czech_sort_key(p.name)),
+            "month_rows": list(zip(MONTH_NAMES, result.months, strict=True)),
+            "changes": changes,
+            "is_current_year": year == today.year,
+        },
+    )
+
+
+def services_tables(result: ServicesReport, scope: str) -> list[Table]:
+    columns = [Column("Měsíc", width=12)]
+    columns += [Column(c.name, "money") for c in result.columns]
+    columns += [
+        Column("Náklady celkem", "money"),
+        Column("Zálohy od nájemníků", "money"),
+        Column("Vyúčtování", "money"),
+        Column("Rozdíl", "money"),
+    ]
+
+    def row(label: object, r: object) -> list[object]:
+        assert hasattr(r, "costs")
+        return [label, *r.costs, r.total, r.advances, r.settlement, r.difference]  # type: ignore[attr-defined]
+
+    rows = [row(MONTH_NAMES[r.month - 1], r) for r in result.months]
+    rows.append(row("Celkem", result.total))
+    rows.append(row(f"Celkem {result.year - 1}", result.previous))
+    return [Table(f"Služby {result.year} {scope}"[:31], columns, rows)]
+
+
+def services_export(request: HttpRequest, fmt: str) -> HttpResponse:
+    """Export přehledu služeb – jen částky po měsících a účelech, bez kontaktů."""
+    if fmt not in FORMATS:
+        raise Http404
+    today = timezone.localdate()
+    year, property_id = report_params(request)
+    result = services_report(year, today, property_id)
+    prop = Property.objects.filter(pk=property_id).first() if property_id else None
+    scope = prop.name if prop else "vše"
+    return export_response(fmt, services_tables(result, scope), f"sluzby-{year}")

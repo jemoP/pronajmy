@@ -8,6 +8,12 @@ urlpatterns = [
     path("", views.overview, name="overview"),
     path("report", report_views.report, name="report"),
     path("report/export.<str:fmt>", report_views.report_export, name="report_export"),
+    path("report/services", report_views.services, name="report_services"),
+    path(
+        "report/services/export.<str:fmt>",
+        report_views.services_export,
+        name="report_services_export",
+    ),
     path("properties", views.properties, name="properties"),
     path("properties/new", views.property_form, name="property_new"),
     path("properties/<int:pk>", views.property_detail, name="property"),

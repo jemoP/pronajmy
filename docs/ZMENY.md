@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-007 – Náklady na energie a přehled služeb
+- **Datum:** 2026-10-18
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** sledovat náklady na elektřinu, plyn, teplou a studenou vodu a vytápění zvlášť a porovnat je se zálohami od nájemníků (podklad pro vyúčtování služeb).
+- **Popis:** výchozí nákladové účely Elektřina, Plyn, Studená voda, Teplá voda, Vytápění (mimo daně, s kódem). Ve Výkazu záložka Služby: pro rok a byt tabulka měsíců × energie a ostatní služby proti zálohám na služby, rozdíl (krytí záloh), srovnání s loňskem, export CSV / XLSX. V Pohybech hromadná změna účelu označených pohybů (např. převod dosavadních „Služeb“ na konkrétní energie).
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Datový model – výchozí účely a kódy, Funkční požadavky P02, P12).
+- **Dopad na data:** datová migrace přidá 5 účelů (existující účel stejného názvu dostane kód); schéma beze změny.
+- **Implementováno:** 2026-10-18, větev feature/zm-007
+
 ## ZM-006 – Předpisy plateb dodavatelům
 - **Datum:** 2026-10-18
 - **Stav:** hotovo

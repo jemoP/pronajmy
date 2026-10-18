@@ -29,11 +29,26 @@ class CategoryCode(models.TextChoices):
     PROPERTY_TAX = "PROPERTY_TAX", "Daň z nemovitosti"
     HOA_FUND = "HOA_FUND", "Fond oprav / SVJ"
     UTILITIES = "UTILITIES", "Služby"
+    ELECTRICITY = "ELECTRICITY", "Elektřina"
+    GAS = "GAS", "Plyn"
+    WATER_COLD = "WATER_COLD", "Studená voda"
+    WATER_HOT = "WATER_HOT", "Teplá voda"
+    HEATING = "HEATING", "Vytápění"
     MANAGEMENT = "MANAGEMENT", "Správa a inzerce"
     FEES = "FEES", "Poplatky"
     OTHER_EXPENSE = "OTHER_EXPENSE", "Ostatní náklady"
     DEPOSIT = "DEPOSIT", "Jistota"
 
+
+# Služby a energie pro přehled služeb (ZM-007); „Služby“ = ostatní služby.
+SERVICE_CODES = (
+    CategoryCode.ELECTRICITY,
+    CategoryCode.GAS,
+    CategoryCode.WATER_COLD,
+    CategoryCode.WATER_HOT,
+    CategoryCode.HEATING,
+    CategoryCode.UTILITIES,
+)
 
 # Účely, u kterých je byt volitelný.
 PROPERTY_OPTIONAL = (CategoryCode.OTHER_INCOME, CategoryCode.OTHER_EXPENSE)
