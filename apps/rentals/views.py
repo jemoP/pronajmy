@@ -65,7 +65,7 @@ from apps.rentals.services.leases import (
     terms_at,
     terms_history,
 )
-from apps.rentals.services.maintenance import plan_states
+from apps.rentals.services.maintenance import open_follow_ups, open_repairs, plan_states
 from apps.rentals.services.payments import (
     end_with_settlement,
     link_entry,
@@ -289,9 +289,15 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             Lease.objects.prefetch_related(*BALANCE_PREFETCH).get(pk=lease.pk), today
         )
     leases = [
-        {"lease": item, "tenants": tenant_names(item), "end": lease_end(item)}
+        {
+            "lease": item,
+            "tenants": tenant_names(item),
+            "end": lease_end(item),
+            "amendments": list(item.amendments.all()),
+        }
         for item in prop.leases.all()
     ]
+    plans = plan_states(today, prop)
     repairs = with_attachment_count(prop.repairs.all()).order_by("-reported_date", "-id")
     communications = (
         with_attachment_count(prop.communications.all())
@@ -315,13 +321,18 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "tenants": [lt.tenant for lt in lease.lease_tenants.all()] if lease else [],
             "balance": balance,
             "leases": leases,
+            "amendments_count": sum(len(item.amendments.all()) for item in prop.leases.all()),
             "entries": entries,
             "today": today,
-            "plans": plan_states(today, prop),
+            "plans": plans,
+            "plans_overdue": sum(1 for s in plans if s.overdue),
+            "plans_soon": sum(1 for s in plans if s.soon),
             "payables": property_payables(prop, today),
             "dues": [(d, due_amount(d)) for d in open_dues(today, prop.pk)],
             "repairs": repairs[:20],
+            "open_repairs": open_repairs(prop).count(),
             "communications": communications[:20],
+            "follow_ups": open_follow_ups(prop).count(),
             "result": result_for(date(today.year, 1, 1), date(today.year, 12, 31), today, prop.pk),
             "pay_form": PayDuesForm(initial={"date_mode": "due"}),
         },

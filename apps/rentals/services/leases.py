@@ -76,8 +76,15 @@ def lease_end(lease: Lease) -> date | None:
 
 
 def leases_with_details() -> Any:
-    """Prefetch smluv bytu s dodatky a nájemníky (pro karty a přehled)."""
-    leases = Lease.objects.prefetch_related("amendments", "lease_tenants__tenant")
+    """Prefetch smluv bytu s dodatky a nájemníky (pro karty a přehled); smlouvy i dodatky
+    s počtem příloh."""
+    amendments = Prefetch(
+        "amendments",
+        queryset=with_attachment_count(LeaseAmendment.objects.all()).order_by(
+            "effective_date", "id"
+        ),
+    )
+    leases = Lease.objects.prefetch_related(amendments, "lease_tenants__tenant")
     return Prefetch("leases", queryset=with_attachment_count(leases).order_by("-start_date"))
 
 

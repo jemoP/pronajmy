@@ -160,8 +160,8 @@ def test_attachment_badge_in_lists(auth_client: Client, lease: Lease) -> None:
     service.add_attachment("repair", repair, SimpleUploadedFile("b.png", PNG))
 
     card = auth_client.get(f"/properties/{flat.pk}").content.decode()
-    # smlouva, oprava (2), revize, komunikace
-    assert card.count("📎") == 4 and '2<span class="sr-only"> přílohy' in card
+    # smlouva, dodatek, oprava (2), revize, komunikace
+    assert card.count("📎") == 5 and '2<span class="sr-only"> přílohy' in card
     assert "📎" in auth_client.get("/maintenance/repairs").content.decode()
     assert "📎" in auth_client.get("/maintenance/communications").content.decode()
     assert "📎" in auth_client.get("/maintenance/inspections").content.decode()

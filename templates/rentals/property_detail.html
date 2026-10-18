@@ -12,50 +12,135 @@
     <a href="{% url 'rentals:lease_new' %}?property={{ property.pk }}" class="btn btn-primary">Nová smlouva</a>
   </div>
 </div>
+<p class="mb-3 text-sm muted">Sekce jde rozbalit a sbalit kliknutím na nadpis; prohlížeč si stav pamatuje.</p>
 
-<section class="card mb-6">
-  <h2 class="mb-2 text-lg font-semibold">Aktuální smlouva</h2>
-  {% if lease %}
-  <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-3">
-    <div><dt class="text-sm muted">Nájemníci</dt><dd>{% for t in tenants %}{{ t.name }}{% if t.phone %} · <a class="link" href="tel:{{ t.phone }}">{{ t.phone }}</a>{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}–{% endfor %}</dd></div>
-    <div><dt class="text-sm muted">Nájem + zálohy</dt><dd>{{ terms.rent_cents|czk }} + {{ terms.services_cents|czk }}</dd></div>
-    <div><dt class="text-sm muted">Doba</dt><dd>{{ lease.start_date|cz_date }} – {% if end %}{{ end|cz_date }}{% else %}neurčitá{% endif %}{% if lease.status == 'DRAFT' %} <span class="badge">návrh</span>{% endif %}</dd></div>
-    <div><dt class="text-sm muted">Splatnost</dt><dd>do {{ lease.due_day }}. dne v měsíci</dd></div>
-    {% if balance %}<div><dt class="text-sm muted">Saldo</dt><dd>{% include "rentals/includes/balance_status.html" %}</dd></div>
-    <div><dt class="text-sm muted">Jistota držená</dt><dd>{{ balance.deposit.held|czk }}</dd></div>{% endif %}
-  </dl>
-  <p class="mt-3"><a class="link" href="{% url 'rentals:lease' lease.pk %}">Detail smlouvy, platby a předpisy</a></p>
-  {% else %}
-  <p class="muted">Byt nemá platnou smlouvu.</p>
+{# Sbalovací sekce karty: details[data-remember] – stav si pamatuje static/js/app.js. #}
+<details id="smlouva" class="card-section" data-remember open>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Aktuální smlouva</h2><span class="text-sm muted">{% if lease %}{{ tenants|join:", " }}{% if balance %} · {% include "rentals/includes/balance_status.html" %}{% endif %}{% else %}bez platné smlouvy{% endif %}</span></summary>
+  <div class="card">
+    {% if lease %}
+    <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-3">
+      <div><dt class="text-sm muted">Nájemníci</dt><dd>{% for t in tenants %}{{ t.name }}{% if t.phone %} · <a class="link" href="tel:{{ t.phone }}">{{ t.phone }}</a>{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}–{% endfor %}</dd></div>
+      <div><dt class="text-sm muted">Nájem + zálohy</dt><dd>{{ terms.rent_cents|czk }} + {{ terms.services_cents|czk }}</dd></div>
+      <div><dt class="text-sm muted">Doba</dt><dd>{{ lease.start_date|cz_date }} – {% if end %}{{ end|cz_date }}{% else %}neurčitá{% endif %}{% if lease.status == 'DRAFT' %} <span class="badge">návrh</span>{% endif %}</dd></div>
+      <div><dt class="text-sm muted">Splatnost</dt><dd>do {{ lease.due_day }}. dne v měsíci</dd></div>
+      {% if balance %}<div><dt class="text-sm muted">Saldo</dt><dd>{% include "rentals/includes/balance_status.html" %}</dd></div>
+      <div><dt class="text-sm muted">Jistota držená</dt><dd>{{ balance.deposit.held|czk }}</dd></div>{% endif %}
+    </dl>
+    <p class="mt-3"><a class="link" href="{% url 'rentals:lease' lease.pk %}">Detail smlouvy, platby a předpisy</a></p>
+    {% else %}
+    <p class="muted">Byt nemá platnou smlouvu.</p>
+    {% endif %}
+  </div>
+</details>
+
+<details id="smlouvy" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Smlouvy</h2><span class="text-sm muted">{{ leases|length }}{% if amendments_count %} · dodatků: {{ amendments_count }}{% endif %}</span></summary>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Smlouva</th><th>Nájemníci</th><th>Od</th><th>Do</th><th>Stav</th></tr></thead>
+      <tbody>
+        {% for r in leases %}
+        <tr>
+          <td><a class="link" href="{% url 'rentals:lease' r.lease.pk %}">{{ r.lease.number|default:"bez čísla" }}</a>{% include "rentals/includes/attachment_badge.html" with n=r.lease.attachment_count %}</td>
+          <td>{{ r.tenants }}</td>
+          <td class="whitespace-nowrap">{{ r.lease.start_date|cz_date }}</td>
+          <td class="whitespace-nowrap">{% if r.end %}{{ r.end|cz_date }}{% else %}neurčitá{% endif %}</td>
+          <td>{{ r.lease.get_status_display }}</td>
+        </tr>
+        {% for a in r.amendments %}
+        <tr class="text-sm">
+          <td class="pl-8"><span aria-hidden="true" class="muted">↳</span> <a class="link" href="{% url 'rentals:amendment_edit' r.lease.pk a.pk %}">Dodatek {{ a.number|default:"bez čísla" }}</a>{% include "rentals/includes/attachment_badge.html" with n=a.attachment_count %}</td>
+          <td class="muted">{{ a.description|truncatechars:80 }}</td>
+          <td class="whitespace-nowrap">od {{ a.effective_date|cz_date }}</td>
+          <td class="whitespace-nowrap">{% if a.end_date %}{{ a.end_date|cz_date }}{% else %}<span class="muted">beze změny</span>{% endif %}</td>
+          <td>{% if a.rent_cents is not None %}nájem {{ a.rent_cents|czk }}{% endif %}{% if a.rent_cents is not None and a.services_cents is not None %}, {% endif %}{% if a.services_cents is not None %}zálohy {{ a.services_cents|czk }}{% endif %}{% if a.rent_cents is None and a.services_cents is None and not a.end_date %}<span class="muted">bez změny podmínek</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        {% empty %}
+        <tr><td colspan="5">Žádné smlouvy.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details id="platby" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Platby dodavatelům</h2><span class="text-sm muted">předpisů: {{ payables|length }}{% if dues %} · <span aria-hidden="true" style="color: var(--status-warning)">⚠</span> k zaplacení: {{ dues|length }}{% endif %}</span></summary>
+  <p class="mb-2 text-right"><a href="{% url 'money:payable_new' %}" class="btn btn-secondary">Nový předpis platby</a></p>
+  {% if payables %}
+  <ul class="mb-3 space-y-1">
+    {% for r in payables %}<li><a class="link" href="{% url 'money:payable' r.payable.pk %}">{{ r.payable.name }}</a> <span class="text-sm muted">{{ r.payable.get_frequency_months_display }}, {{ r.payable.due_day }}. den{% if r.payable.auto %}, automaticky{% endif %}</span> – {% for item in r.items %}{{ item.label|default:item.category.name }} {{ item.amount_cents|czk }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>{% endfor %}
+  </ul>
+  {% else %}<p class="mb-3 muted">Byt nemá žádné předpisy plateb.</p>{% endif %}
+  {% if dues %}
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th><span class="sr-only">Označit</span></th><th>Splatnost</th><th>Předpis</th><th>Rozpis</th><th class="amount">Částka</th><th></th></tr></thead>
+      <tbody>{% include "money/includes/due_rows.html" %}</tbody>
+    </table>
+  </div>
+  {% include "money/includes/pay_dues_form.html" with back=request.path %}
   {% endif %}
-</section>
+</details>
 
-<h2 class="mb-2 text-xl font-semibold">Smlouvy</h2>
-<div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-  <table class="table">
-    <thead><tr><th>Smlouva</th><th>Nájemníci</th><th>Od</th><th>Do</th><th>Stav</th></tr></thead>
-    <tbody>
-      {% for r in leases %}
-      <tr>
-        <td><a class="link" href="{% url 'rentals:lease' r.lease.pk %}">{{ r.lease.number|default:"bez čísla" }}</a>{% include "rentals/includes/attachment_badge.html" with n=r.lease.attachment_count %}</td>
-        <td>{{ r.tenants }}</td>
-        <td class="whitespace-nowrap">{{ r.lease.start_date|cz_date }}</td>
-        <td class="whitespace-nowrap">{% if r.end %}{{ r.end|cz_date }}{% else %}neurčitá{% endif %}</td>
-        <td>{{ r.lease.get_status_display }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5">Žádné smlouvy.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<details id="opravy" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Opravy</h2><span class="text-sm muted">{% if open_repairs %}<span aria-hidden="true" style="color: var(--status-warning)">⚠</span> otevřené: {{ open_repairs }}{% else %}žádné otevřené{% endif %}</span></summary>
+  <p class="mb-2 text-right"><a href="{% url 'rentals:repair_new' property.pk %}" class="btn btn-secondary">Nová oprava / závada</a></p>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Nahlášeno</th><th>Závada / oprava</th><th>Stav</th><th class="amount">Náklady</th></tr></thead>
+      <tbody>{% include "rentals/includes/repair_rows.html" with items=repairs show_property=False %}</tbody>
+    </table>
+  </div>
+</details>
 
-<section class="mb-6">
+<details id="revize" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Revize</h2><span class="text-sm muted">v plánu: {{ plans|length }}{% if plans_overdue %} · <span aria-hidden="true" style="color: var(--status-over)">✕</span> po termínu: {{ plans_overdue }}{% endif %}{% if plans_soon %} · <span aria-hidden="true" style="color: var(--status-warning)">⚠</span> blíží se: {{ plans_soon }}{% endif %}</span></summary>
+  <p class="mb-2 text-right"><a href="{% url 'rentals:inspection_plan_new' property.pk %}" class="btn btn-secondary">Přidat revizi do plánu</a></p>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Revize</th><th>Naposledy</th><th>Příští termín</th><th></th></tr></thead>
+      <tbody>
+        {% for s in plans %}
+        <tr>
+          <td><a class="link" href="{% url 'rentals:inspection_plan_edit' s.plan.pk %}">{{ s.plan }}</a></td>
+          <td class="whitespace-nowrap">{% if s.last %}<a class="link" href="{% url 'rentals:inspection_edit' s.last.pk %}">{{ s.last.done_date|cz_date }}</a>{% include "rentals/includes/attachment_badge.html" with n=s.last.attachment_count %} · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
+          <td class="whitespace-nowrap">{% include "rentals/includes/plan_status.html" %}</td>
+          <td class="text-right"><a class="link" href="{% url 'rentals:inspection_new' s.plan.pk %}">Zapsat revizi</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">Žádné revize v plánu.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details id="komunikace" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Komunikace</h2><span class="text-sm muted">{% if follow_ups %}<span aria-hidden="true" style="color: var(--status-warning)">⚠</span> k vyřízení: {{ follow_ups }}{% else %}nic k vyřízení{% endif %}</span></summary>
+  <p class="mb-2 text-right"><a href="{% url 'rentals:communication_new' property.pk %}" class="btn btn-secondary">Nový záznam</a></p>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Kdy</th><th>Kontakt</th><th>Předmět</th><th>Vyřídit</th></tr></thead>
+      <tbody>{% include "rentals/includes/communication_rows.html" with items=communications show_property=False %}</tbody>
+    </table>
+  </div>
+</details>
+
+{% if property.note %}
+<details id="poznamka" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Poznámka</h2></summary>
+  <div class="card"><p class="whitespace-pre-line">{{ property.note }}</p></div>
+</details>
+{% endif %}
+
+<details id="pohyby" class="card-section" data-remember>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Pohyby bytu</h2><span class="text-sm muted">zisk {{ today.year }}: {{ result.profit_cents|czk }}</span></summary>
   <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="text-xl font-semibold">Pohyby bytu</h2>
+    <p class="text-sm">Výsledek {{ today.year }}: příjmy <span class="income">{{ result.income_cents|czk }}</span>, náklady <span class="expense">{{ result.expense_cents|czk }}</span>, zisk <strong>{{ result.profit_cents|czk }}</strong></p>
     <a class="link" href="{% url 'money:entries' %}?property={{ property.pk }}">Všechny pohyby bytu</a>
   </div>
-  <p class="mb-2 text-sm">Výsledek {{ today.year }}: příjmy <span class="income">{{ result.income_cents|czk }}</span>, náklady <span class="expense">{{ result.expense_cents|czk }}</span>, zisk <strong>{{ result.profit_cents|czk }}</strong></p>
   <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
     <table class="table">
       <thead><tr><th>Datum</th><th>Druh</th><th>Účel</th><th class="amount">Částka</th><th>Poznámka</th></tr></thead>
@@ -74,78 +159,5 @@
       </tbody>
     </table>
   </div>
-</section>
-
-<section id="platby" class="mb-6">
-  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="text-xl font-semibold">Platby dodavatelům</h2>
-    <a href="{% url 'money:payable_new' %}" class="btn btn-secondary">Nový předpis platby</a>
-  </div>
-  {% if payables %}
-  <ul class="mb-3 space-y-1">
-    {% for r in payables %}<li><a class="link" href="{% url 'money:payable' r.payable.pk %}">{{ r.payable.name }}</a> <span class="text-sm muted">{{ r.payable.get_frequency_months_display }}, {{ r.payable.due_day }}. den{% if r.payable.auto %}, automaticky{% endif %}</span> – {% for item in r.items %}{{ item.label|default:item.category.name }} {{ item.amount_cents|czk }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>{% endfor %}
-  </ul>
-  {% else %}<p class="mb-3 muted">Byt nemá žádné předpisy plateb.</p>{% endif %}
-  {% if dues %}
-  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-    <table class="table">
-      <thead><tr><th><span class="sr-only">Označit</span></th><th>Splatnost</th><th>Předpis</th><th>Rozpis</th><th class="amount">Částka</th><th></th></tr></thead>
-      <tbody>{% include "money/includes/due_rows.html" %}</tbody>
-    </table>
-  </div>
-  {% include "money/includes/pay_dues_form.html" with back=request.path %}
-  {% endif %}
-</section>
-
-<section id="opravy" class="mb-6">
-  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="text-xl font-semibold">Opravy</h2>
-    <a href="{% url 'rentals:repair_new' property.pk %}" class="btn btn-secondary">Nová oprava / závada</a>
-  </div>
-  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-    <table class="table">
-      <thead><tr><th>Nahlášeno</th><th>Závada / oprava</th><th>Stav</th><th class="amount">Náklady</th></tr></thead>
-      <tbody>{% include "rentals/includes/repair_rows.html" with items=repairs show_property=False %}</tbody>
-    </table>
-  </div>
-</section>
-
-<section id="revize" class="mb-6">
-  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="text-xl font-semibold">Revize</h2>
-    <a href="{% url 'rentals:inspection_plan_new' property.pk %}" class="btn btn-secondary">Přidat revizi do plánu</a>
-  </div>
-  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-    <table class="table">
-      <thead><tr><th>Revize</th><th>Naposledy</th><th>Příští termín</th><th></th></tr></thead>
-      <tbody>
-        {% for s in plans %}
-        <tr>
-          <td><a class="link" href="{% url 'rentals:inspection_plan_edit' s.plan.pk %}">{{ s.plan }}</a></td>
-          <td class="whitespace-nowrap">{% if s.last %}<a class="link" href="{% url 'rentals:inspection_edit' s.last.pk %}">{{ s.last.done_date|cz_date }}</a>{% include "rentals/includes/attachment_badge.html" with n=s.last.attachment_count %} · {{ s.last.get_result_display }}{% else %}–{% endif %}</td>
-          <td class="whitespace-nowrap">{% include "rentals/includes/plan_status.html" %}</td>
-          <td class="text-right"><a class="link" href="{% url 'rentals:inspection_new' s.plan.pk %}">Zapsat revizi</a></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4">Žádné revize v plánu.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section id="komunikace" class="mb-6">
-  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="text-xl font-semibold">Komunikace</h2>
-    <a href="{% url 'rentals:communication_new' property.pk %}" class="btn btn-secondary">Nový záznam</a>
-  </div>
-  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-    <table class="table">
-      <thead><tr><th>Kdy</th><th>Kontakt</th><th>Předmět</th><th>Vyřídit</th></tr></thead>
-      <tbody>{% include "rentals/includes/communication_rows.html" with items=communications show_property=False %}</tbody>
-    </table>
-  </div>
-</section>
-
-{% if property.note %}<section class="card mb-6"><h2 class="mb-1 font-semibold">Poznámka</h2><p class="whitespace-pre-line">{{ property.note }}</p></section>{% endif %}
+</details>
 {% endblock %}

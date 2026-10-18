@@ -268,3 +268,24 @@ def test_inspection_type_form(auth_client: Client, db: None) -> None:
 )
 def test_pages_require_login(client: Client, db: None, url: str) -> None:
     assert client.get(url)["Location"].startswith("/login/")
+
+
+def test_property_card_sections(auth_client: Client, lease: Lease) -> None:
+    """Sekce karty bytu jsou sbalovací; rozbalená je jen aktuální smlouva, pohyby jsou na konci."""
+    Repair.objects.create(property=lease.property, reported_date=TODAY, title="Zvonek")
+    html = auth_client.get(f"/properties/{lease.property_id}").content.decode()
+    order = ["smlouva", "smlouvy", "platby", "opravy", "revize", "komunikace", "pohyby"]
+    positions = [html.index(f'<details id="{name}"') for name in order]
+    assert positions == sorted(positions)
+    assert '<details id="smlouva" class="card-section" data-remember open>' in html
+    assert '<details id="opravy" class="card-section" data-remember>' in html
+    assert "otevřené: 1" in html and "Jan Nájemník" in html
+
+
+def test_property_card_lists_amendments_under_lease(auth_client: Client, lease: Lease) -> None:
+    html = auth_client.get(f"/properties/{lease.property_id}").content.decode()
+    section = html[html.index('<details id="smlouvy"') : html.index('<details id="platby"')]
+    assert "dodatků: 1" in section
+    lease_row, amendment_row = section.index("1/2026"), section.index("Dodatek 1")
+    assert lease_row < amendment_row  # dodatek pod svou smlouvou
+    assert "od 1. 7. 2026" in section and "nájem 16" in section and "beze změny" in section
