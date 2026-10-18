@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Platby{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <h1 class="text-2xl font-bold">Platby dodavatelům</h1>
+  <a href="{% url 'money:payable_new' %}" class="btn btn-primary">Nový předpis platby</a>
+</div>
+
+<section class="mb-8" id="k-zaplaceni">
+  <h2 class="mb-2 text-xl font-semibold">K zaplacení{% if dues %} ({{ dues|length }}, {{ dues_total|czk }}){% endif %}</h2>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th><span class="sr-only">Označit</span></th><th>Splatnost</th><th>Předpis</th><th>Rozpis</th><th class="amount">Částka</th><th></th></tr></thead>
+      <tbody>{% include "money/includes/due_rows.html" %}</tbody>
+    </table>
+  </div>
+  {% if dues %}{% include "money/includes/pay_dues_form.html" %}{% endif %}
+</section>
+
+<section class="mb-8">
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-xl font-semibold">Předpisy plateb</h2>
+    <form method="get" class="flex items-center gap-2">
+      <label class="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="ended" value="1"{% if include_ended %} checked{% endif %}> i ukončené</label>
+      <button type="submit" class="btn btn-secondary">Zobrazit</button>
+    </form>
+  </div>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Předpis</th><th>Dodavatel</th><th>Četnost</th><th>Platnost</th><th class="amount">Za měsíc</th><th>Příští splátka</th></tr></thead>
+      <tbody>
+        {% for r in rows %}{% with p=r.payable %}
+        <tr class="{% if p.valid_to and p.valid_to < today %}text-slate-500{% endif %}">
+          <td><a class="link" href="{% url 'money:payable' p.pk %}">{{ p.name }}</a>{% if p.auto %} <span class="badge">automaticky</span>{% endif %}</td>
+          <td>{{ p.supplier }}<div class="text-xs muted">{{ p.get_method_display }} · z účtu {{ p.account.name }}</div></td>
+          <td>{{ p.get_frequency_months_display }}, {{ p.due_day }}. den</td>
+          <td class="whitespace-nowrap">{{ p.valid_from|cz_date }} – {% if p.valid_to %}{{ p.valid_to|cz_date }}{% else %}neurčitě{% endif %}</td>
+          <td class="amount">{{ r.monthly|czk }}</td>
+          <td class="whitespace-nowrap">{% if r.next %}{{ r.next.due_date|cz_date }}{% else %}–{% endif %}</td>
+        </tr>
+        {% endwith %}{% empty %}
+        <tr><td colspan="6">Zatím žádné předpisy plateb. <a class="link" href="{% url 'money:payable_new' %}">Založ první</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-8">
+  <h2 class="mb-2 text-xl font-semibold">Výhled na 12 měsíců</h2>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Měsíc</th><th>Platby</th><th class="amount">Celkem</th></tr></thead>
+      <tbody>
+        {% for m in forecast %}
+        <tr>
+          <td class="whitespace-nowrap">{{ m.month.month }}/{{ m.month.year }}</td>
+          <td class="text-sm">{% for p, due, amount in m.rows %}{{ p.name }} {{ amount|czk }} ({{ due|cz_date }}){% if not forloop.last %}; {% endif %}{% endfor %}</td>
+          <td class="amount">{{ m.total|czk }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">Žádné budoucí platby.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -6,6 +6,7 @@ import pytest
 from django.db import IntegrityError, transaction
 from django.test import Client
 
+from apps.core.dates import add_months
 from apps.money.models import Account, CategoryCode, Entry, EntryKind
 from apps.money.services.entries import result_for
 from apps.rentals.models import (
@@ -20,7 +21,6 @@ from apps.rentals.models import (
     RepairStatus,
 )
 from apps.rentals.services.maintenance import (
-    add_months,
     open_follow_ups,
     open_repairs,
     plan_state,

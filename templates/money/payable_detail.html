@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ payable.name }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <p class="text-sm"><a class="link" href="{% url 'money:payables' %}">Platby</a> ›</p>
+    <h1 class="text-2xl font-bold">{{ payable.name }}{% if payable.auto %} <span class="badge">automaticky</span>{% endif %}</h1>
+    <p class="muted">{{ payable.supplier|default:"bez dodavatele" }} · {{ payable.get_method_display }} · {{ payable.get_frequency_months_display }}, {{ payable.due_day }}. den · z účtu {{ payable.account.name }}</p>
+    <p class="muted">Platí {{ payable.valid_from|cz_date }} – {% if payable.valid_to %}{{ payable.valid_to|cz_date }}{% else %}neurčitě{% endif %}{% if payable.previous %} · navazuje na <a class="link" href="{% url 'money:payable' payable.previous.pk %}">předchozí předpis</a>{% endif %}{% if successor %} · pokračuje <a class="link" href="{% url 'money:payable' successor.pk %}">od {{ successor.valid_from|cz_date }}</a>{% endif %}</p>
+    {% if payable.supplier_account or payable.variable_symbol or payable.specific_symbol %}<p class="text-sm muted">{% if payable.supplier_account %}účet {{ payable.supplier_account|mask:payable.bank_code }}{% endif %}{% if payable.variable_symbol %} · VS {{ payable.variable_symbol }}{% endif %}{% if payable.specific_symbol %} · SS {{ payable.specific_symbol }}{% endif %}</p>{% endif %}
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'money:payable_edit' payable.pk %}" class="btn btn-secondary">Upravit</a>
+    {% if not has_paid %}<form method="post" action="{% url 'money:payable_delete' payable.pk %}" hx-confirm="Smazat předpis platby?">{% csrf_token %}<button type="submit" class="btn btn-secondary">Smazat</button></form>{% endif %}
+  </div>
+</div>
+
+<section class="card mb-6">
+  <h2 class="mb-2 text-lg font-semibold">Rozpis ({{ total|czk }})</h2>
+  <ul class="space-y-1">
+    {% for item in payable.items.all %}<li>{{ item.label|default:item.category.name }} <span class="text-sm muted">{{ item.category.name }}{% if item.property %} · {{ item.property.name }}{% endif %}</span> – {{ item.amount_cents|czk }}</li>{% endfor %}
+  </ul>
+  {% if payable.note %}<p class="mt-2 whitespace-pre-line text-sm muted">{{ payable.note }}</p>{% endif %}
+</section>
+
+{% if not successor and not payable.valid_to or not successor and payable.valid_to >= today %}
+<details class="card mb-6"{% if change_form.errors %} open{% endif %}>
+  <summary class="cursor-pointer font-semibold">Změnit od data (nová částka, dodavatel…)</summary>
+  <form method="post" action="{% url 'money:payable_change' payable.pk %}" class="mt-3 flex flex-wrap items-end gap-3">
+    {% csrf_token %}
+    <label class="field">Změna platí od <input class="input" type="date" name="day" value="{{ change_form.day.value|default_if_none:'' }}"{% if change_form.day.errors %} aria-invalid="true"{% endif %}>{% if change_form.day.errors %}<span class="error">{{ change_form.day.errors.0 }}</span>{% endif %}</label>
+    <button type="submit" class="btn btn-secondary">Založit navazující předpis</button>
+  </form>
+  <p class="mt-2 text-sm muted">Tento předpis skončí den předem a vznikne navazující se stejným rozpisem, který pak upravíš. Zaplacené splátky zůstanou beze změny.</p>
+</details>
+{% endif %}
+
+<h2 class="mb-2 text-xl font-semibold">Splátky</h2>
+<div class="mb-2 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="table">
+    <thead><tr><th><span class="sr-only">Označit</span></th><th>Období</th><th>Splatnost</th><th class="amount">Částka</th><th>Stav</th><th></th></tr></thead>
+    <tbody>
+      {% for due, amount, entries in rows %}
+      <tr class="{% if due.skipped %}text-slate-500{% endif %}">
+        <td class="w-8">{% if not entries and not due.skipped %}<input type="checkbox" name="dues" value="{{ due.pk }}" form="dues-pay" data-amount="{{ amount }}" aria-label="Označit splátku {{ due.period.month }}/{{ due.period.year }}">{% endif %}</td>
+        <td>{{ due.period.month }}/{{ due.period.year }}</td>
+        <td class="whitespace-nowrap">{{ due.due_date|cz_date }}</td>
+        <td class="amount">{{ amount|czk }}{% if due.amount_cents %} <span class="badge">upraveno</span>{% endif %}</td>
+        <td>
+          {% if entries %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> zaplaceno {% for e in entries %}<a class="link" href="{% url 'money:entry_edit' e.pk %}">{{ e.date|cz_date }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+          {% elif due.skipped %}<span aria-hidden="true">–</span> přeskočeno
+          {% elif due.due_date < today %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> po splatnosti
+          {% else %}<span aria-hidden="true" style="color: var(--status-warning)">⚠</span> čeká{% endif %}
+        </td>
+        <td class="whitespace-nowrap text-right">
+          {% if not entries %}
+            {% if not due.skipped %}<button type="submit" form="dues-pay" name="single" value="{{ due.pk }}" class="btn-link">Zaplaceno</button>{% endif %}
+            <form method="post" action="{% url 'money:due_skip' due.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="skip" value="{% if due.skipped %}0{% else %}1{% endif %}"><button type="submit" class="btn-link ml-2">{% if due.skipped %}Obnovit{% else %}Přeskočit{% endif %}</button></form>
+            {% if single_item and not due.skipped %}
+            <details class="inline-block text-left"><summary class="btn-link ml-2 inline cursor-pointer">Částka</summary>
+              <form method="post" action="{% url 'money:due_amount' due.pk %}" class="mt-1 flex gap-1">{% csrf_token %}<input class="input w-28" name="amount" inputmode="decimal" placeholder="{{ amount|amount_input }}" aria-label="Částka splátky"><button type="submit" class="btn btn-secondary">Uložit</button></form>
+            </details>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Zatím žádné splátky (vznikají do aktuálního měsíce).</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "money/includes/pay_dues_form.html" with back=request.path %}
+{% endblock %}

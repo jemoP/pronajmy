@@ -76,6 +76,27 @@
   </div>
 </section>
 
+<section id="platby" class="mb-6">
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-xl font-semibold">Platby dodavatelům</h2>
+    <a href="{% url 'money:payable_new' %}" class="btn btn-secondary">Nový předpis platby</a>
+  </div>
+  {% if payables %}
+  <ul class="mb-3 space-y-1">
+    {% for r in payables %}<li><a class="link" href="{% url 'money:payable' r.payable.pk %}">{{ r.payable.name }}</a> <span class="text-sm muted">{{ r.payable.get_frequency_months_display }}, {{ r.payable.due_day }}. den{% if r.payable.auto %}, automaticky{% endif %}</span> – {% for item in r.items %}{{ item.label|default:item.category.name }} {{ item.amount_cents|czk }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>{% endfor %}
+  </ul>
+  {% else %}<p class="mb-3 muted">Byt nemá žádné předpisy plateb.</p>{% endif %}
+  {% if dues %}
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th><span class="sr-only">Označit</span></th><th>Splatnost</th><th>Předpis</th><th>Rozpis</th><th class="amount">Částka</th><th></th></tr></thead>
+      <tbody>{% include "money/includes/due_rows.html" %}</tbody>
+    </table>
+  </div>
+  {% include "money/includes/pay_dues_form.html" with back=request.path %}
+  {% endif %}
+</section>
+
 <section id="opravy" class="mb-6">
   <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
     <h2 class="text-xl font-semibold">Opravy</h2>

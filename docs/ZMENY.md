@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-006 – Předpisy plateb dodavatelům
+- **Datum:** 2026-10-18
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** opakované platby dodavatelům (energie, plyn, voda, fond oprav SVJ, SIPO) se zadávají ručně; z předpisu s platností v čase má jít vygenerovat pohyb.
+- **Popis:** nová stránka Platby. Předpis platby (dodavatel, způsob platby, účet, četnost, den splatnosti, platnost od–do) s rozpisem na řádky (účel, byt, částka – např. SVJ: fond oprav, správa, zálohy na služby). Z předpisu vznikají splátky do aktuálního měsíce; zaplacení tlačítkem nebo dávkově vytvoří z každého řádku náklad. Výchozí je zápis k potvrzení, přepínač v předpisu zapne automatický zápis k datu splatnosti. Změna od data založí navazující předpis. Seznam K zaplacení, výhled na 12 měsíců, sekce na kartě bytu, upozornění.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Datový model – Platby dodavatelům, Funkční požadavky P17).
+- **Dopad na data:** nové tabulky `payable`, `payable_item`, `payable_due`; nový sloupec `entry.payable_due_id`.
+- **Implementováno:** 2026-10-18, větev feature/zm-006
+
 ## ZM-005 – Platba z předpisu (jednotlivě i dávkově)
 - **Datum:** 2026-10-17
 - **Stav:** hotovo

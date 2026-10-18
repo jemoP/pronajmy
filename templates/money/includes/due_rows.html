@@ -1,0 +1,13 @@
+{# Otevřené splátky s označením pro zaplacení. dues = [(splátka, částka)] #}
+{% for due, amount in dues %}
+<tr>
+  <td class="w-8"><input type="checkbox" name="dues" value="{{ due.pk }}" form="dues-pay" data-amount="{{ amount }}" aria-label="Označit splátku {{ due.payable.name }} {{ due.period.month }}/{{ due.period.year }}"></td>
+  <td class="whitespace-nowrap">{% if due.due_date < today %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="sr-only">po splatnosti</span>{% endif %}{{ due.due_date|cz_date }}</td>
+  <td><a class="link" href="{% url 'money:payable' due.payable_id %}">{{ due.payable.name }}</a> <span class="text-sm muted">{{ due.period.month }}/{{ due.period.year }}</span>{% if due.payable.supplier %}<div class="text-xs muted">{{ due.payable.supplier }} · {{ due.payable.get_method_display }}</div>{% endif %}</td>
+  <td class="text-sm">{% for item in due.payable.items.all %}{{ item.label|default:item.category.name }}{% if item.property %} ({{ item.property.name }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+  <td class="amount{% if due.due_date < today %} expense{% endif %}">{{ amount|czk }}{% if due.due_date < today %} <span class="text-xs muted">po splatnosti</span>{% endif %}</td>
+  <td class="whitespace-nowrap text-right"><button type="submit" form="dues-pay" name="single" value="{{ due.pk }}" class="btn-link">Zaplaceno</button></td>
+</tr>
+{% empty %}
+<tr><td colspan="6"><span aria-hidden="true" style="color: var(--status-ok)">✓</span> Nic nečeká na zaplacení.</td></tr>
+{% endfor %}

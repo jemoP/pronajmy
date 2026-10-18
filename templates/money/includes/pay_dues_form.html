@@ -1,0 +1,17 @@
+{# Dávkové zaplacení splátek (ZM-006); zaškrtávátka a tlačítka u řádků mají form="dues-pay". #}
+<form id="dues-pay" method="post" action="{% url 'money:payables_pay' %}" class="card mt-3 space-y-3" data-words="splátka,splátky,splátek">
+  {% csrf_token %}
+  <input type="hidden" name="back" value="{{ back|default:request.path }}">
+  {% if pay_form.non_field_errors %}<p class="notice-error">{{ pay_form.non_field_errors.0 }}</p>{% endif %}
+  <p aria-live="polite"><strong data-selected-summary>Označeno: nic</strong></p>
+  <fieldset class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+    <legend class="mb-1 font-medium text-slate-700">Datum platby</legend>
+    <label class="flex items-center gap-2"><input type="radio" name="date_mode" value="due"{% if pay_form.date_mode.value != 'day' %} checked{% endif %}> podle splatnosti (nejpozději dnes)</label>
+    <label class="flex items-center gap-2"><input type="radio" name="date_mode" value="day"{% if pay_form.date_mode.value == 'day' %} checked{% endif %}> jedno datum:</label>
+    <input class="input w-auto" type="date" name="day" value="{{ pay_form.day.value|default_if_none:'' }}" aria-label="Datum platby"{% if pay_form.day.errors %} aria-invalid="true"{% endif %}>
+    {% if pay_form.day.errors %}<span class="error w-full">{{ pay_form.day.errors.0 }}</span>{% endif %}
+  </fieldset>
+  <label class="field">Poznámka (nepovinná) <input class="input" name="note" maxlength="200" value="{{ pay_form.note.value|default_if_none:'' }}"></label>
+  <p class="text-sm muted">Z každého řádku rozpisu vznikne samostatný náklad na účet předpisu. Tlačítko „Zaplaceno“ u splátky zapíše jen ji.</p>
+  <button type="submit" class="btn btn-primary">Zapsat platby za označené splátky</button>
+</form>

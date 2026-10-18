@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 17. 10. 2026, ZM-005 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 18. 10. 2026, ZM-006 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -83,6 +83,33 @@ Pravidla pohybů:
   příjmu snižuje příjmy, ne zvyšuje náklady); náklady = EXPENSE s účelem druhu EXPENSE;
   zisk = příjmy − náklady. Neutrální účely (jistota), převody, výběry a vklady se nepočítají.
 - Pohyb s datem v budoucnosti je plánovaný: nepočítá se do aktuálního zůstatku ani výsledku.
+
+### Platby dodavatelům (aplikace `money`, ZM-006)
+
+| Tabulka | Klíčové sloupce | Poznámka |
+| --- | --- | --- |
+| `payable` | id, name, supplier, supplier_account, bank_code, variable_symbol, specific_symbol, method (ORDER / STANDING / DIRECT_DEBIT / SIPO / CASH), account_id, frequency_months (1 / 3 / 6 / 12), due_day (1–31), valid_from, valid_to (NULL = neurčitě), auto, previous_id, note | Předpis platby dodavateli (energie, plyn, voda, SVJ, SIPO…); číslo účtu dodavatele v UI maskované |
+| `payable_item` | id, payable_id, category_id (druh náklad), property_id, amount_cents (> 0), label | Rozpis platby na účely a byty (1–n řádků) |
+| `payable_due` | id, payable_id, period (1. den měsíce), due_date, amount_cents (NULL = podle rozpisu), skipped | Splátka; jedna na předpis a období |
+| `entry.payable_due_id` | | Náklad vzniklý ze splátky; smazání nákladu vrátí splátku mezi otevřené |
+
+Pravidla plateb dodavatelům:
+
+- Splátky vznikají při otevření aplikace (idempotentně) do aktuálního měsíce včetně, po
+  `frequency_months` od měsíce `valid_from`; splatnost = `due_day` v měsíci (u kratšího měsíce
+  poslední den) a musí ležet v platnosti předpisu. Budoucí splátky se jen zobrazují ve výhledu.
+- Zaplacení splátky (tlačítkem nebo dávkově, datum podle splatnosti nejpozději dnes, nebo
+  zvolené) vytvoří z každého řádku rozpisu samostatný náklad (účel, byt, účet předpisu).
+  Splátka je zaplacená, když z ní vznikl aspoň jeden náklad; přeskočená se nenabízí.
+- Výchozí je zápis k potvrzení; s přepínačem `auto` vzniknou náklady samy k datu splatnosti
+  (trvalý příkaz, inkaso, SIPO). Když automatický zápis selže (neaktivní účet, byt…), splátka
+  zůstane otevřená a ukáže se v upozorněních.
+- Částku otevřené splátky jde jednorázově upravit jen u předpisu s jedním řádkem rozpisu.
+- Změna od data ukončí předpis den předem a založí navazující (`previous_id`) se stejným
+  rozpisem; nezaplacené splátky starého předpisu od toho data zmizí. Úprava bez data přepočítá
+  jen otevřené splátky. Smazat jde jen předpis bez zaplacených splátek.
+- Upozornění: splátka po splatnosti nezaplacená, předpis končí do 60 dní, automatický předpis
+  skončil v posledních 30 dnech (zrušit trvalý příkaz / inkaso).
 
 ### Pronájmy (aplikace `rentals`)
 
@@ -169,6 +196,7 @@ ověření vodoměrů 60.
 | P14 | Export | Export pohybů a výkazu do CSV (český Excel: UTF-8 s BOM, středník, desetinná čárka) a XLSX; bez kontaktů nájemníků a čísel účtů | Má |
 | P15 | Zálohy | Denní šifrovaná záloha databáze a příloh, kontrola a obnova | Musí |
 | P16 | Přístup | Přihlášení heslem (jeden účet), provoz jen přes Tailscale | Musí |
+| P17 | Platby | Předpisy plateb dodavatelům s platností v čase a rozpisem na účely a byty; splátky, zaplacení jednotlivě i dávkově (volitelně automaticky), výhled, upozornění (ZM-006) | Má |
 
 Nefunkční požadavky: UI v češtině, částky „1 234,50 Kč“, data „15. 10. 2026“; responzivní na
 mobilu; vše lokálně, žádné cloudové služby a CDN; osobní údaje nájemníků jen v nezbytném

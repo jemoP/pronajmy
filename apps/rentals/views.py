@@ -21,8 +21,10 @@ from apps.core.formatting import czech_sort_key
 from apps.core.forms import first_errors
 from apps.core.web import opt_int
 from apps.money.models import Entry
+from apps.money.payable_forms import PayDuesForm
 from apps.money.services.accounts import account_choices, list_accounts
 from apps.money.services.entries import result_for
+from apps.money.services.payables import current_payables, due_amount, open_dues
 from apps.rentals.forms import (
     AmendmentForm,
     ChargeForm,
@@ -263,6 +265,16 @@ def property_form(request: HttpRequest, pk: int | None = None) -> HttpResponse:
     )
 
 
+def property_payables(prop: Property, today: date) -> list[dict[str, Any]]:
+    """Platné předpisy plateb s řádky pro tento byt (ZM-006)."""
+    rows = []
+    for payable in current_payables(today):
+        items = [i for i in payable.items.all() if i.property_id == prop.pk]
+        if items:
+            rows.append({"payable": payable, "items": items})
+    return rows
+
+
 def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
     """Karta bytu: aktuální smlouva se saldem, historie smluv, poslední pohyby."""
     today = timezone.localdate()
@@ -306,9 +318,12 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "entries": entries,
             "today": today,
             "plans": plan_states(today, prop),
+            "payables": property_payables(prop, today),
+            "dues": [(d, due_amount(d)) for d in open_dues(today, prop.pk)],
             "repairs": repairs[:20],
             "communications": communications[:20],
             "result": result_for(date(today.year, 1, 1), date(today.year, 12, 31), today, prop.pk),
+            "pay_form": PayDuesForm(initial={"date_mode": "due"}),
         },
     )
 
