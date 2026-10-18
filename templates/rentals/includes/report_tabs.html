@@ -1,0 +1,5 @@
+<h1 class="mb-3 text-2xl font-bold">Výkaz pronájmů</h1>
+<nav class="mb-5 flex flex-wrap gap-x-6 border-b border-slate-200" aria-label="Výkaz">
+  <a href="{% url 'rentals:report' %}?{{ request.GET.urlencode }}" class="tab"{% if tab == 'report' %} aria-current="page"{% endif %}>Výsledek a daně</a>
+  <a href="{% url 'rentals:report_services' %}?{{ request.GET.urlencode }}" class="tab"{% if tab == 'services' %} aria-current="page"{% endif %}>Služby a energie</a>
+</nav>

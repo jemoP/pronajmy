@@ -32,6 +32,7 @@ from apps.money.services.entries import (
     delete_entry,
     filtered,
     list_entries,
+    recategorize,
     update_entry,
 )
 from apps.rentals.services.properties import property_choices
@@ -171,6 +172,21 @@ def entries(request: HttpRequest) -> HttpResponse:
             last_account=values["account_id"],
         )
     )
+
+
+@require_POST
+def entries_recategorize(request: HttpRequest) -> HttpResponseRedirect:
+    """Hromadná změna účelu označených pohybů (ZM-007); návrat na seznam se stejným filtrem."""
+    back = safe_back(request.POST.get("back"), list_url())
+    ids = [i for v in request.POST.getlist("entries") if (i := opt_int(v))]
+    try:
+        count = recategorize(ids, opt_int(request.POST.get("category_id")))
+    except ValidationError as exc:
+        for message in exc.messages:
+            messages.error(request, message)
+    else:
+        messages.success(request, f"Účel změněn u pohybů: {count}.")
+    return redirect(back)
 
 
 ENTRY_COLUMNS = [

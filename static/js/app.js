@@ -128,3 +128,32 @@
   document.addEventListener("DOMContentLoaded", () => init(document));
   document.addEventListener("htmx:load", (event) => init(event.detail.elt));
 })();
+
+// Hromadné označení (ZM-007): „označit vše“ a počet označených pro formulář podle atributu form.
+(function () {
+  "use strict";
+
+  function boxes(formId) {
+    return document.querySelectorAll(`input[type="checkbox"][form="${formId}"]`);
+  }
+
+  function count(formId) {
+    const target = document.querySelector(`[data-selected-count="${formId}"]`);
+    if (!target) return;
+    const n = Array.from(boxes(formId)).filter((box) => box.checked).length;
+    const word = n === 1 ? "pohyb" : n > 1 && n < 5 ? "pohyby" : "pohybů";
+    target.textContent = n ? `Označeno: ${n} ${word}` : "Označeno: nic";
+  }
+
+  document.addEventListener("change", (event) => {
+    const input = event.target;
+    if (!input.matches) return;
+    if (input.matches("input[data-select-all]")) {
+      const formId = input.dataset.selectAll;
+      boxes(formId).forEach((box) => { box.checked = input.checked; });
+      count(formId);
+    } else if (input.matches('input[type="checkbox"][form]')) {
+      count(input.getAttribute("form"));
+    }
+  });
+})();

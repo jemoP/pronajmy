@@ -5,9 +5,10 @@ from datetime import date
 from math import ceil
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, Q, QuerySet, Sum
 
-from apps.core.formatting import format_czk
+from apps.core.formatting import format_czk, format_date
 from apps.money.models import (
     CATEGORIZED_KINDS,
     PROPERTY_OPTIONAL,
@@ -297,3 +298,42 @@ def update_entry(entry: Entry, data: EntryInput) -> Entry:
 
 def delete_entry(entry: Entry) -> None:
     entry.delete()
+
+
+@transaction.atomic
+def recategorize(entry_ids: list[int], category_id: int | None) -> int:
+    """Hromadná změna účelu (ZM-007): označeným příjmům / nákladům nastaví účel. Platí stejná
+    pravidla jako při úpravě pohybu; při jakékoli chybě se nezmění nic."""
+    if not entry_ids:
+        raise ValidationError({"entries": "Označ aspoň jeden pohyb."})
+    if category_id is None or not Category.objects.filter(pk=category_id).exists():
+        raise ValidationError({"category_id": "Vyber účel."})
+    entries = list(
+        Entry.objects.select_for_update().filter(pk__in=entry_ids).order_by("date", "id")
+    )
+    problems: list[str] = []
+    for entry in entries:
+        label = f"{format_date(entry.date)} {format_czk(entry.amount_cents)}"
+        if entry.kind not in CATEGORIZED_KINDS:
+            problems.append(f"{label}: {entry.get_kind_display().lower()} nemá účel.")
+            continue
+        data = EntryInput(
+            date=entry.date,
+            kind=entry.kind,
+            amount_cents=entry.amount_cents,
+            account_id=entry.account_id,
+            to_account_id=entry.to_account_id,
+            category_id=category_id,
+            property_id=entry.property_id,
+            note=entry.note,
+        ).normalized()
+        if errors := validate(data, entry):
+            problems.append(f"{label}: {next(iter(errors.values()))}")
+            continue
+        if entry.category_id != category_id:
+            entry.category_id = category_id
+            entry.save(update_fields=["category", "updated_at"])
+    if problems:
+        shown = problems[:5] + ([f"… a další ({len(problems) - 5})"] if len(problems) > 5 else [])
+        raise ValidationError({"entries": shown})
+    return len(entries)

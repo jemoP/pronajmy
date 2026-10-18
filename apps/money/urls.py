@@ -7,6 +7,7 @@ app_name = "money"
 urlpatterns = [
     path("entries", views.entries, name="entries"),
     path("entries/export.<str:fmt>", views.entries_export, name="entries_export"),
+    path("entries/recategorize", views.entries_recategorize, name="entries_recategorize"),
     path("entries/<int:pk>/edit", views.entry_edit, name="entry_edit"),
     path("entries/<int:pk>/delete", views.entry_delete, name="entry_delete"),
     path("accounts", views.accounts, name="accounts"),
