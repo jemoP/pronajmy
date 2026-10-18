@@ -86,3 +86,45 @@
     if (form) summary(form);
   });
 })();
+
+// Sbalovací sekce (details[data-remember]): stav si pamatuje prohlížeč, odkaz #sekce ji rozbalí.
+(function () {
+  "use strict";
+  const PREFIX = "sekce:" + location.pathname.replace(/\/\d+/g, "/*") + ":";
+
+  function load(details) {
+    try {
+      const saved = localStorage.getItem(PREFIX + details.id);
+      if (saved !== null) details.open = saved === "1";
+    } catch (error) {
+      // Úložiště nemusí být dostupné (soukromé okno) – zůstane výchozí stav.
+    }
+  }
+
+  function openFromHash() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const target = id && document.getElementById(id);
+    if (target && target.matches("details[data-remember]")) {
+      target.open = true;
+      target.scrollIntoView();
+    }
+  }
+
+  function init(root) {
+    root.querySelectorAll("details[data-remember][id]").forEach(load);
+    openFromHash();
+  }
+
+  document.addEventListener("toggle", (event) => {
+    const details = event.target;
+    if (!details.matches || !details.matches("details[data-remember][id]")) return;
+    try {
+      localStorage.setItem(PREFIX + details.id, details.open ? "1" : "0");
+    } catch (error) {
+      // viz výše
+    }
+  }, true);
+  window.addEventListener("hashchange", openFromHash);
+  document.addEventListener("DOMContentLoaded", () => init(document));
+  document.addEventListener("htmx:load", (event) => init(event.detail.elt));
+})();
