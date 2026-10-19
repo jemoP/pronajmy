@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Smazat pohyby{% endblock %}
+{% block content %}
+<section class="card">
+  <h1 class="mb-2 text-lg font-bold">Smazat {{ summary.count }} {% if summary.count == 1 %}pohyb{% elif summary.count < 5 %}pohyby{% else %}pohybů{% endif %}?</h1>
+  <p class="notice-warning mb-4"><span aria-hidden="true">⚠</span> Smazání je trvalé – aplikace nemá koš, obnova je možná jen ze zálohy. Před smazáním si můžeš označené pohyby <a class="link" hx-boost="false" href="{{ export_url }}">stáhnout do CSV</a>.</p>
+
+  <h2 class="mb-1 font-semibold">Součty</h2>
+  <ul class="mb-4 flex flex-wrap gap-x-6 gap-y-1">
+    {% for label, amount in summary.sums_labeled %}<li>{{ label }}: <strong class="tabular-nums">{{ amount|czk }}</strong></li>{% endfor %}
+  </ul>
+
+  {% with i=summary.impacts %}
+  {% if i.any %}
+  <h2 class="mb-1 font-semibold">Dopady smazání</h2>
+  <ul class="mb-4 space-y-1">
+    {% for x in i.leases %}
+    <li class="notice-warning"><span aria-hidden="true">⚠</span> Smlouva <a class="link" href="{% url 'rentals:lease' x.lease.pk %}">{{ x.lease }}</a>: zmizí {{ x.label|lower }} ({{ x.count }}×, {{ x.amount_cents|czk }}){% if x.raises_balance %} – <strong>saldo smlouvy vzroste o {{ x.amount_cents|czk }}</strong>{% elif x.kind == 'DEPOSIT' %} – držená jistota klesne{% else %} – vrácení se ze smlouvy odebere{% endif %}.</li>
+    {% endfor %}
+    {% for due in i.reopened_dues %}
+    <li class="notice-warning"><span aria-hidden="true">⚠</span> Splátka <a class="link" href="{% url 'money:payable' due.payable_id %}">{{ due.payable.name }} {{ due.period.month }}/{{ due.period.year }}</a> se znovu otevře (K zaplacení).</li>
+    {% endfor %}
+    {% for due in i.partly_paid_dues %}
+    <li class="notice-warning"><span aria-hidden="true">⚠</span> Splátka <a class="link" href="{% url 'money:payable' due.payable_id %}">{{ due.payable.name }} {{ due.period.month }}/{{ due.period.year }}</a> přijde o část nákladů, ale zůstane zaplacená.</li>
+    {% endfor %}
+    {% for r in i.repairs %}
+    <li class="notice-warning"><span aria-hidden="true">⚠</span> Oprava <a class="link" href="{% url 'rentals:repair_edit' r.pk %}">{{ r.title }}</a> ({{ r.property }}) zůstane, ale bez zapsaného nákladu.</li>
+    {% endfor %}
+    {% for x in i.inspections %}
+    <li class="notice-warning"><span aria-hidden="true">⚠</span> Revize <a class="link" href="{% url 'rentals:inspection_edit' x.pk %}">{{ x }}</a> ({{ x.plan.property }}) zůstane, ale bez zapsaného nákladu.</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="notice-ok mb-4"><span aria-hidden="true">✓</span> Pohyby nejsou navázané na smlouvy, platby dodavatelům, opravy ani revize.</p>
+  {% endif %}
+  {% endwith %}
+
+  <h2 class="mb-1 font-semibold">Pohyby ke smazání</h2>
+  <div class="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Datum</th><th>Druh</th><th>Účel</th><th>Byt</th><th class="amount">Částka</th><th>Účet</th><th>Poznámka</th></tr></thead>
+      <tbody>
+        {% for e in summary.entries %}
+        <tr class="{% if e.date > today %}italic text-slate-500{% endif %}">
+          <td class="whitespace-nowrap">{{ e.date|cz_date }}</td>
+          <td>{{ e.get_kind_display }}</td>
+          <td>{{ e.category.name|default:"–" }}</td>
+          <td>{{ e.property.name|default:"" }}</td>
+          <td class="amount">{{ e.amount_cents|czk }}</td>
+          <td>{{ e.account.name }}{% if e.to_account %} → {{ e.to_account.name }}{% endif %}</td>
+          <td>{{ e.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" action="{% url 'money:entries_delete' %}" class="flex flex-wrap gap-2">
+    {% csrf_token %}
+    {% for e in summary.entries %}<input type="hidden" name="entries" value="{{ e.pk }}">{% endfor %}
+    <input type="hidden" name="token" value="{{ summary.token }}">
+    <input type="hidden" name="confirm" value="1">
+    <input type="hidden" name="back" value="{{ back }}">
+    <button type="submit" class="btn btn-danger">Smazat {{ summary.count }} {% if summary.count == 1 %}pohyb{% elif summary.count < 5 %}pohyby{% else %}pohybů{% endif %}</button>
+    <a href="{{ back }}" class="btn btn-secondary">Zpět</a>
+  </form>
+</section>
+{% endblock %}

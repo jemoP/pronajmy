@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-009 – Hromadné mazání pohybů
+- **Datum:** 2026-10-19
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** více označených pohybů má jít smazat jedním příkazem.
+- **Popis:** v Pohybech jde označit každý pohyb (i převody, výběry a vklady); panel označených nabízí změnu účelu a smazání. Smazání vede na potvrzovací stránku se součty po druzích, seznamem pohybů, dopady (platby ke smlouvám se smažou s upozorněním na saldo, splátky plateb dodavatelům se znovu otevřou, opravy a revize přijdou o zapsaný náklad) a exportem označených do CSV. Vše, nebo nic; změněné pohyby mezi označením a potvrzením potvrzení odmítnou. Rozsah nejvýš jedna stránka seznamu.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Pravidla pohybů – hromadné smazání, Funkční požadavky P02).
+- **Dopad na data:** žádný (beze změny schématu).
+- **Implementováno:** 2026-10-19, větev feature/zm-009
+
 ## ZM-008 – Oddělený výsledek nájmu a služeb
 - **Datum:** 2026-10-19
 - **Stav:** hotovo

@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 19. 10. 2026, ZM-008 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 19. 10. 2026, ZM-009 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -72,6 +72,12 @@ Služby a energie (ZM-007, ZM-008): přehled služeb tvoří nákladové účely
 s příznakem kromě Vyúčtování služeb (vrácené snižují), vyúčtování = účel s kódem SETTLEMENT.
 Hromadná změna účelu převede označené příjmy / náklady na zvolený účel; platí stejná pravidla
 jako při úpravě pohybu (druh účelu, byt) a zapíše se vše, nebo nic.
+
+Hromadné smazání (ZM-009): označit jde každý pohyb na stránce; před smazáním potvrzovací stránka
+se součty po druzích, seznamem pohybů a dopady (platby ke smlouvám zmizí a saldo vzroste,
+splátky plateb dodavatelům se znovu otevřou, opravy a revize přijdou o zapsaný náklad) a odkaz
+na export označených do CSV. Smaže se vše, nebo nic; když se některý pohyb mezi označením
+a potvrzením změnil nebo zmizel, potvrzení se odmítne. Mazání je trvalé (obnova jen ze zálohy).
 
 Do podkladu pro daně se nepočítají účely s `taxable` = ne. Výchozí nastavení: Zálohy na služby,
 Vyúčtování služeb a náklad Služby jsou průběžné položky (služby, které pronajímatel jen přeposílá
@@ -193,7 +199,7 @@ ověření vodoměrů 60.
 | ID | Oblast | Požadavek | Priorita |
 | --- | --- | --- | --- |
 | P01 | Peníze | Účty pronájmů, aktuální zůstatek a zůstatek k datu | Musí |
-| P02 | Peníze | Pohyby: zadání, úprava, smazání; seznam s filtrem (období, druh, účel, byt, účet, text), součty, stránkování; hromadná změna účelu označených pohybů (ZM-007) | Musí |
+| P02 | Peníze | Pohyby: zadání, úprava, smazání; seznam s filtrem (období, druh, účel, byt, účet, text), součty, stránkování; hromadná změna účelu (ZM-007) a hromadné smazání označených pohybů s potvrzením a výpisem dopadů (ZM-009) | Musí |
 | P03 | Peníze | Číselník účelů (druh, pořadí, aktivní) | Musí |
 | P04 | Byty | Byty a nájemníci; karta bytu s aktuální smlouvou, saldem, opravami, revizemi a komunikací | Musí |
 | P05 | Smlouvy | Smlouvy s více nájemníky, doba určitá / neurčitá, dodatky, historie podmínek, ukončení, historické smlouvy se „sledovat saldo od“ | Musí |

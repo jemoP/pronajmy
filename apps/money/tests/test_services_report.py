@@ -166,7 +166,7 @@ def test_recategorize(bank: Account, flat: Property, cash: Account) -> None:
 def test_recategorize_via_web(auth_client: Client, bank: Account, flat: Property) -> None:
     entry = add(EntryKind.EXPENSE, 100, bank, code=CategoryCode.UTILITIES, prop=flat)
     page = auth_client.get("/entries").content.decode()
-    assert 'data-select-all="recategorize"' in page and "Změnit účel označených" in page
+    assert 'data-select-all="bulk"' in page and "Změnit účel označených" in page
     heating = category(CategoryCode.HEATING)
     response = auth_client.post(
         "/entries/recategorize",

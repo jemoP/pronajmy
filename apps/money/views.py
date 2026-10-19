@@ -12,12 +12,13 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.export import FORMATS, Column, Table, export_response
-from apps.core.formatting import format_amount_input, parse_czk
+from apps.core.formatting import format_amount_input, format_czk, parse_czk
 from apps.core.forms import first_errors
 from apps.core.web import opt_date, opt_int, safe_back, with_params
 from apps.money.forms import FIELDS, EntryForm
 from apps.money.models import Account, AccountKind, Category, CategoryKind, Entry, EntryKind
 from apps.money.services.accounts import AccountInput, account_choices, list_accounts, save_account
+from apps.money.services.bulk_delete import delete_entries, delete_summary
 from apps.money.services.categories import (
     CategoryInput,
     category_choices,
@@ -189,6 +190,41 @@ def entries_recategorize(request: HttpRequest) -> HttpResponseRedirect:
     return redirect(back)
 
 
+def entries_delete(request: HttpRequest) -> HttpResponse:
+    """Hromadné smazání (ZM-009): bez „confirm“ ukáže souhrn a dopady, s ním smaže."""
+    back = safe_back(request.POST.get("back"), list_url())
+    if request.method != "POST":
+        return redirect(list_url())
+    ids = [i for v in request.POST.getlist("entries") if (i := opt_int(v))]
+    try:
+        if request.POST.get("confirm") == "1":
+            summary = delete_entries(ids, request.POST.get("token", ""))
+        else:
+            summary = delete_summary(ids)
+    except ValidationError as exc:
+        for message in exc.messages:
+            messages.error(request, message)
+        return redirect(back)
+    if request.POST.get("confirm") == "1":
+        sums = ", ".join(
+            f"{label.lower()} {format_czk(amount)}" for label, amount in summary.sums_labeled
+        )
+        messages.success(request, f"Smazáno pohybů: {summary.count} ({sums}).")
+        return redirect(back)
+    ids_param = ",".join(str(e.pk) for e in summary.entries)
+    return render(
+        request,
+        "money/entries_delete.html",
+        {
+            "nav": "entries",
+            "summary": summary,
+            "back": back,
+            "export_url": f"{reverse('money:entries_export', args=['csv'])}?ids={ids_param}",
+            "today": timezone.localdate(),
+        },
+    )
+
+
 ENTRY_COLUMNS = [
     Column("Datum", "date"),
     Column("Druh", width=20),
@@ -207,11 +243,10 @@ def entries_export(request: HttpRequest, fmt: str) -> HttpResponse:
     if fmt not in FORMATS:
         raise Http404
     today = timezone.localdate()
-    qs = (
-        filtered(parse_filter(request.GET))
-        .select_related("account", "to_account", "category", "property")
-        .order_by("date", "id")
-    )
+    ids = [i for v in request.GET.get("ids", "").split(",") if (i := opt_int(v))]
+    # Export označených pohybů (před hromadným smazáním, ZM-009), jinak podle filtru.
+    base = Entry.objects.filter(pk__in=ids) if ids else filtered(parse_filter(request.GET))
+    qs = base.select_related("account", "to_account", "category", "property").order_by("date", "id")
     rows = (
         [
             e.date,
