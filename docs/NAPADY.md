@@ -8,6 +8,23 @@ na později · `převedeno` – realizuje se přes ZM-xxx · `zamítnuto` – ne
 
 ---
 
+## Oddělený výsledek nájmu a služeb
+- **Stav:** pozastaveno (2026-10-19, návrh hotový, čeká na rozhodnutí otázek níže)
+- **Popis:** příjmy a náklady rozdělit na dvě oddělená porovnání; celkový zisk se nemění.
+  - **Nájem:** Nájemné, Ostatní příjmy proti nákladům mimo služby (opravy, revize, pojištění,
+    daň z nemovitosti, fond oprav / SVJ, správa, poplatky, ostatní) → zisk z nájmu.
+  - **Služby:** Zálohy na služby + Vyúčtování služeb (nedoplatky − vrácené přeplatky) proti
+    energiím a Službám → rozdíl služeb (kladný = zálohy pokryly náklady).
+  - Rozlišení: příznak u účelu „Služba (průběžná položka)“ (výchozí: zálohy, vyúčtování, energie,
+    Služby; jde zapnout i u vlastních účelů), nezávislý na příznaku „Do daní“; záložka Služby
+    a energie (ZM-007) by se řídila jím místo pevných kódů.
+  - Zobrazení: Výkaz › Výsledek a daně (dvě řady dlaždic, tabulka po bytech ve dvou blocích
+    s mezisoučty, měsíce a roky se ziskem z nájmu a rozdílem služeb, graf jen nájmu, export),
+    Přehled (dlaždice zisk z nájmu a rozdíl služeb), karta bytu. Pohyby a daně beze změny.
+- **Otevřené otázky:** příznak u účelu, nebo pevně podle kódů (doporučeno: příznak); Fond oprav /
+  SVJ v nájmu (zálohy přes SVJ rozepsat v Platbách na energie); rozsah Výkaz + Přehled + karta
+  bytu, nebo jen Výkaz (doporučeno: vše).
+
 ## Demo aplikace se smyšlenými daty
 - **Stav:** pozastaveno (2026-10-18, návrh hotový, čeká na rozhodnutí otázek níže)
 - **Popis:** samostatná demo instance ze stejného kódu, bez kopie skutečných dat (kopie +
