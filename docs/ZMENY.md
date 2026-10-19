@@ -26,6 +26,16 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-008 – Oddělený výsledek nájmu a služeb
+- **Datum:** 2026-10-19
+- **Stav:** hotovo
+- **Zadal:** Petr
+- **Důvod:** porovnat příjem z nájmu s náklady mimo služby a zvlášť příjmy ze služeb (zálohy, vyúčtování) s náklady na služby.
+- **Popis:** účel má příznak „Služba (průběžná položka)“ (výchozí: Zálohy na služby, Vyúčtování služeb, Služby a energie; jde nastavit i u vlastních účelů). Výsledek se všude dělí na zisk z nájmu a rozdíl služeb (celkem beze změny): Výkaz (dlaždice, po bytech ve dvou blocích, měsíce, roky, graf nájmu, export), Přehled a karta bytu. Přehled služeb (ZM-007) se řídí příznakem místo pevných kódů. Pohyby a podklad pro daně beze změny. Fond oprav / SVJ patří do nájmu.
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Datový model – `category`, Pravidla pohybů – výsledek, Služby a energie, Funkční požadavky P12).
+- **Dopad na data:** nový sloupec `category.is_service` (výchozí ne), datová migrace ho zapne u kódů SERVICES, SETTLEMENT, UTILITIES, ELECTRICITY, GAS, WATER_COLD, WATER_HOT, HEATING.
+- **Implementováno:** 2026-10-19, větev feature/zm-008
+
 ## ZM-007 – Náklady na energie a přehled služeb
 - **Datum:** 2026-10-18
 - **Stav:** hotovo

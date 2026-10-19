@@ -340,7 +340,7 @@ def account_form(request: HttpRequest, pk: int | None = None) -> HttpResponse:
 
 # --- Účely ------------------------------------------------------------------
 
-CATEGORY_FIELDS = ("name", "kind", "sort", "active", "taxable")
+CATEGORY_FIELDS = ("name", "kind", "sort", "active", "taxable", "is_service")
 
 
 def category_input(values: dict[str, str]) -> CategoryInput:
@@ -350,6 +350,7 @@ def category_input(values: dict[str, str]) -> CategoryInput:
         sort=opt_int(values["sort"]) or 0,
         active=values["active"] == "on",
         taxable=values["taxable"] == "on",
+        is_service=values["is_service"] == "on",
     )
 
 
@@ -398,6 +399,7 @@ def category_edit(request: HttpRequest, pk: int) -> HttpResponse:
             "sort": str(category.sort),
             "active": "on" if category.active else "",
             "taxable": "on" if category.taxable else "",
+            "is_service": "on" if category.is_service else "",
         }
     return render(
         request,

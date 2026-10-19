@@ -1,8 +1,8 @@
 """Přehled služeb (ZM-007): náklady na energie a ostatní služby po měsících proti zálohám
 na služby od nájemníků – podklad pro vyúčtování služeb.
 
-Náklady = náklady s účelem služeb (SERVICE_CODES). Zálohy = příjmy s účelem Zálohy na služby
-(vrácené zálohy snižují). Vyúčtování = nedoplatky zaplacené nájemníkem − vrácené přeplatky.
+Náklady = náklady s účelem s příznakem „služba“ (ZM-008). Zálohy = příjmy s účelem s příznakem
+kromě Vyúčtování služeb (vrácené zálohy snižují). Vyúčtování = nedoplatky − vrácené přeplatky.
 Jen pohyby do dneška včetně (plánované ne).
 """
 
@@ -12,7 +12,7 @@ from datetime import date
 from django.db.models import QuerySet, Sum
 from django.db.models.functions import ExtractMonth
 
-from apps.money.models import SERVICE_CODES, Category, CategoryCode, Entry, EntryKind
+from apps.money.models import SERVICE_CODES, Category, CategoryCode, CategoryKind, Entry, EntryKind
 
 
 @dataclass(frozen=True)
@@ -48,11 +48,12 @@ class ServicesReport:
 
 
 def service_columns() -> list[ServiceColumn]:
-    """Sloupce v pořadí kódů; název podle číselníku (účel jde přejmenovat)."""
-    names = dict(Category.objects.filter(code__in=SERVICE_CODES).values_list("code", "name"))
-    return [
-        ServiceColumn(code, names.get(code, CategoryCode(code).label)) for code in SERVICE_CODES
-    ]
+    """Sloupce = nákladové účely s příznakem „služba“ (ZM-008): nejdřív výchozí energie
+    v pořadí kódů, pak ostatní podle pořadí v číselníku. Klíčem je id účelu."""
+    order: dict[str, int] = {str(code): i for i, code in enumerate(SERVICE_CODES)}
+    categories = Category.objects.filter(kind=CategoryKind.EXPENSE, is_service=True)
+    ranked = sorted(categories, key=lambda c: (order.get(c.code or "", len(order)), c.sort, c.name))
+    return [ServiceColumn(str(c.pk), c.name) for c in ranked]
 
 
 def year_entries(year: int, today: date, property_id: int | None) -> QuerySet[Entry]:
@@ -71,21 +72,23 @@ def _monthly(
     advances = [0] * 12
     settlement = [0] * 12
     rows = (
-        qs.filter(category__code__in=[*index, CategoryCode.SERVICES, CategoryCode.SETTLEMENT])
+        qs.filter(category__is_service=True)
         .annotate(m=ExtractMonth("date"))
-        .values("m", "kind", "category__code")
+        .values("m", "kind", "category_id", "category__kind", "category__code")
         .annotate(total=Sum("amount_cents"))
         .order_by()
     )
     for row in rows:
-        month, code, amount = row["m"] - 1, row["category__code"], row["total"] or 0
+        month, amount = row["m"] - 1, row["total"] or 0
         signed = amount if row["kind"] == EntryKind.INCOME else -amount
-        if code == CategoryCode.SERVICES:
-            advances[month] += signed
-        elif code == CategoryCode.SETTLEMENT:
-            settlement[month] += signed
-        elif row["kind"] == EntryKind.EXPENSE and code in index:
-            costs[month][index[code]] += amount
+        if row["category__kind"] == CategoryKind.INCOME:
+            # Příjem ze služeb: vyúčtování zvlášť, ostatní (zálohy…) jako zálohy.
+            if row["category__code"] == CategoryCode.SETTLEMENT:
+                settlement[month] += signed
+            else:
+                advances[month] += signed
+        elif row["kind"] == EntryKind.EXPENSE and (key := str(row["category_id"])) in index:
+            costs[month][index[key]] += amount
     return [ServiceRow(m + 1, costs[m], advances[m], settlement[m]) for m in range(12)]
 
 

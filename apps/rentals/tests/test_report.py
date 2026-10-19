@@ -79,13 +79,25 @@ def test_report_matches_entries(lease: Lease, rental_account: Account) -> None:
     assert report.expense == 250_000 + 1_000_000
     flat, no_property = report.properties
     assert flat.name == "Byt Laštůvkova"
-    assert flat.income == {
-        "Nájemné": 13_800_000,
-        "Vyúčtování služeb": -50_000,
-        "Zálohy na služby": 2_400_000,
-    }
-    assert flat.expense == {"Opravy a údržba": 250_000, "Služby": 1_000_000}
-    assert (no_property.name, no_property.income) == ("Bez bytu", {"Ostatní příjmy": 100_000})
+    # Nájem a služby odděleně (ZM-008).
+    assert flat.rent.income == {"Nájemné": 13_800_000}
+    assert flat.rent.expense == {"Opravy a údržba": 250_000}
+    assert flat.services.income == {"Vyúčtování služeb": -50_000, "Zálohy na služby": 2_400_000}
+    assert flat.services.expense == {"Služby": 1_000_000}
+    assert (no_property.name, no_property.rent.income) == ("Bez bytu", {"Ostatní příjmy": 100_000})
+    totals = report.totals
+    assert (totals.rent_income, totals.rent_expense, totals.rent_profit) == (
+        13_900_000,
+        250_000,
+        13_650_000,
+    )
+    assert (totals.service_income, totals.service_expense, totals.service_difference) == (
+        2_350_000,
+        1_000_000,
+        1_350_000,
+    )
+    assert totals.profit == report.profit == totals.rent_profit + totals.service_difference
+    assert report.months[4].service_income == 300_000 - 50_000  # zálohy − vrácený přeplatek
     assert report.months_income[0] == 1_800_000 and report.months_expense[2] == 250_000
     assert report.months_income[4] == 1_800_000 - 50_000
     assert report.months_income[11] == 0  # plánovaný příjem ne
@@ -156,7 +168,8 @@ def test_report_export(auth_client: Client, lease: Lease, rental_account: Accoun
     for secret in ("Jan Nájemník", "777 123 456", "jan@example.cz", "2501234567"):
         assert secret not in content, secret
     rows = list(csv.reader(io.StringIO(content), delimiter=";"))
-    assert ["Celkem", "162500,00", "12500,00", "150000,00"] in rows
+    celkem = ["139000,00", "2500,00", "136500,00", "23500,00", "10000,00", "13500,00", "150000,00"]
+    assert ["Celkem", *celkem] in rows
     book = load_workbook(io.BytesIO(auth_client.get("/report/export.xlsx?year=2026").content))
     assert book.sheetnames == ["Byty 2026", "Podle účelů", "Měsíce", "Roky", "Podklad pro DP"]
     assert auth_client.get("/report/export.pdf").status_code == 404

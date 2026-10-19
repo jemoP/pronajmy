@@ -15,6 +15,7 @@ from apps.rentals.models import Property
 from apps.rentals.services.report import (
     FLAT_RATE_CAP,
     FLAT_RATE_PERCENT,
+    PropertyResult,
     RentalReport,
     YearResult,
     rental_report,
@@ -64,9 +65,10 @@ def report(request: HttpRequest) -> HttpResponse:
     chart = {
         "type": "bar",
         "labels": MONTH_SHORT,
+        # Graf jen nájmu – služby (průběžné položky) by porovnání zkreslily (ZM-008).
         "series": [
-            series("Příjmy", "series-1", result.months_income),
-            series("Náklady", "series-2", result.months_expense),
+            series("Příjmy z nájmu", "series-1", [m.rent_income for m in result.months]),
+            series("Náklady nájmu", "series-2", [m.rent_expense for m in result.months]),
         ],
     }
     return render(
@@ -80,9 +82,8 @@ def report(request: HttpRequest) -> HttpResponse:
             "property_id": property_id,
             "properties": sorted(Property.objects.all(), key=lambda p: czech_sort_key(p.name)),
             "chart": chart,
-            "month_rows": list(
-                zip(MONTH_NAMES, result.months_income, result.months_expense, strict=True)
-            ),
+            "month_rows": list(zip(MONTH_NAMES, result.months, strict=True)),
+            "totals": result.totals,
             "years_rows": with_previous(years_overview(today, property_id)),
             "flat_percent": FLAT_RATE_PERCENT,
             "flat_cap": FLAT_RATE_CAP,
@@ -96,21 +97,48 @@ def report(request: HttpRequest) -> HttpResponse:
 def export_tables(result: RentalReport, years: list[YearResult]) -> list[Table]:
     """Tabulky exportu – jen byty, účely a částky (bez kontaktů a čísel účtů)."""
     year = result.year
-    money = [Column("Příjmy", "money"), Column("Náklady", "money"), Column("Zisk", "money")]
+    # Nájem a služby odděleně (ZM-008), na konci celkem.
+    split = [
+        Column("Příjmy z nájmu", "money"),
+        Column("Náklady nájmu", "money"),
+        Column("Zisk z nájmu", "money"),
+        Column("Příjmy ze služeb", "money"),
+        Column("Náklady na služby", "money"),
+        Column("Rozdíl služeb", "money"),
+        Column("Zisk celkem", "money"),
+    ]
+
+    def split_row(y: YearResult) -> list[object]:
+        return [
+            y.rent_income,
+            y.rent_expense,
+            y.rent_profit,
+            y.service_income,
+            y.service_expense,
+            y.service_difference,
+            y.profit,
+        ]
+
+    def property_year(p: PropertyResult) -> YearResult:
+        r, s = p.rent, p.services
+        return YearResult(year, r.income_total, r.expense_total, s.income_total, s.expense_total)
+
     summary = Table(
         f"Byty {year}",
-        [Column("Byt", width=28), *money],
-        [[p.name, p.income_total, p.expense_total, p.profit] for p in result.properties]
-        + [["Celkem", result.income, result.expense, result.profit]],
+        [Column("Byt", width=28), *split],
+        [[p.name, *split_row(property_year(p))] for p in result.properties]
+        + [["Celkem", *split_row(result.totals)]],
     )
     detail_rows: list[list[object]] = []
     for p in result.properties:
-        detail_rows += [[p.name, "příjem", name, amount] for name, amount in p.income.items()]
-        detail_rows += [[p.name, "náklad", name, amount] for name, amount in p.expense.items()]
+        for label, group in (("nájem", p.rent), ("služby", p.services)):
+            detail_rows += [[p.name, label, "příjem", n, a] for n, a in group.income.items()]
+            detail_rows += [[p.name, label, "náklad", n, a] for n, a in group.expense.items()]
     detail = Table(
         "Podle účelů",
         [
             Column("Byt", width=28),
+            Column("Skupina", width=10),
             Column("Druh", width=10),
             Column("Účel", width=28),
             Column("Částka", "money"),
@@ -119,21 +147,13 @@ def export_tables(result: RentalReport, years: list[YearResult]) -> list[Table]:
     )
     months = Table(
         "Měsíce",
-        [Column("Měsíc", width=12), *money],
-        [
-            [
-                MONTH_NAMES[i],
-                result.months_income[i],
-                result.months_expense[i],
-                result.months_income[i] - result.months_expense[i],
-            ]
-            for i in range(12)
-        ],
+        [Column("Měsíc", width=12), *split],
+        [[MONTH_NAMES[i], *split_row(m)] for i, m in enumerate(result.months)],
     )
     by_year = Table(
         "Roky",
-        [Column("Rok", "int"), *money],
-        [[y.year, y.income, y.expense, y.profit] for y in years],
+        [Column("Rok", "int"), *split],
+        [[y.year, *split_row(y)] for y in years],
     )
     tax = result.tax
     tax_rows: list[list[object]] = [

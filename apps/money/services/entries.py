@@ -64,6 +64,21 @@ class Result:
 
 
 @dataclass(frozen=True)
+class SplitResult:
+    """Výsledek rozdělený na nájem a služby (ZM-008); celkem = nájem + služby."""
+
+    rent: Result = Result()
+    services: Result = Result()
+
+    @property
+    def total(self) -> Result:
+        return Result(
+            self.rent.income_cents + self.services.income_cents,
+            self.rent.expense_cents + self.services.expense_cents,
+        )
+
+
+@dataclass(frozen=True)
 class EntryPage:
     rows: list[Entry]
     total_count: int
@@ -117,6 +132,38 @@ def result_of(qs: QuerySet[Entry], today: date) -> Result:
         EntryKind.EXPENSE, CategoryKind.INCOME
     )
     return Result(income, total(EntryKind.EXPENSE, CategoryKind.EXPENSE))
+
+
+def split_result_of(qs: QuerySet[Entry], today: date) -> SplitResult:
+    """Výsledek rozdělený podle příznaku účelu „služba“ (ZM-008); pravidla jako result_of."""
+    rows = (
+        qs.filter(
+            date__lte=today,
+            kind__in=CATEGORIZED_KINDS,
+            category__kind__in=(CategoryKind.INCOME, CategoryKind.EXPENSE),
+        )
+        .values("kind", "category__kind", "category__is_service")
+        .annotate(total=Sum("amount_cents"))
+        .order_by()
+    )
+    sides: dict[bool, list[int]] = {False: [0, 0], True: [0, 0]}  # služba → [příjmy, náklady]
+    for row in rows:
+        amount = row["total"] or 0
+        side = sides[bool(row["category__is_service"])]
+        if row["category__kind"] == CategoryKind.INCOME:
+            side[0] += amount if row["kind"] == EntryKind.INCOME else -amount
+        else:
+            side[1] += amount
+    return SplitResult(Result(*sides[False]), Result(*sides[True]))
+
+
+def split_result_for(
+    date_from: date, date_to: date, today: date, property_id: int | None = None
+) -> SplitResult:
+    qs = Entry.objects.filter(date__gte=date_from, date__lte=date_to)
+    if property_id is not None:
+        qs = qs.filter(property_id=property_id)
+    return split_result_of(qs, today)
 
 
 def result_for(

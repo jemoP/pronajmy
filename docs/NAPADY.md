@@ -9,7 +9,7 @@ na později · `převedeno` – realizuje se přes ZM-xxx · `zamítnuto` – ne
 ---
 
 ## Oddělený výsledek nájmu a služeb
-- **Stav:** pozastaveno (2026-10-19, návrh hotový, čeká na rozhodnutí otázek níže)
+- **Stav:** převedeno (2026-10-19, realizuje se jako [ZM-008](ZMENY.md))
 - **Popis:** příjmy a náklady rozdělit na dvě oddělená porovnání; celkový zisk se nemění.
   - **Nájem:** Nájemné, Ostatní příjmy proti nákladům mimo služby (opravy, revize, pojištění,
     daň z nemovitosti, fond oprav / SVJ, správa, poplatky, ostatní) → zisk z nájmu.

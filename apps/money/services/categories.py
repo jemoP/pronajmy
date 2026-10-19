@@ -34,6 +34,7 @@ class CategoryInput:
     sort: int
     active: bool
     taxable: bool = True
+    is_service: bool = False
 
 
 def save_category(category: Category | None, data: CategoryInput) -> Category:
@@ -62,6 +63,7 @@ def save_category(category: Category | None, data: CategoryInput) -> Category:
     category.sort = data.sort
     category.active = data.active
     category.taxable = data.taxable
+    category.is_service = data.is_service
     category.save()
     return category
 

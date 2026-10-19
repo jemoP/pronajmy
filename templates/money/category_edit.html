@@ -20,6 +20,7 @@
     </div>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="active"{% if values.active == 'on' %} checked{% endif %}> Aktivní (nabízet při zadávání pohybů)</label>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="taxable"{% if values.taxable == 'on' %} checked{% endif %}> Počítat do daní (podklad pro daňové přiznání)</label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_service"{% if values.is_service == 'on' %} checked{% endif %}> Služba – průběžná položka (výsledek služeb, ne nájmu)</label>
     <div class="flex flex-wrap gap-2">
       <button type="submit" class="btn btn-primary">Uložit</button>
       <a href="{% url 'money:categories' %}" class="btn btn-secondary">Zpět</a>

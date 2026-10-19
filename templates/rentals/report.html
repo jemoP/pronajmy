@@ -18,73 +18,91 @@
 </form>
 <p class="mb-3 text-sm muted">Příjmy a náklady s účelem druhu příjem / náklad{% if is_current_year %} do dneška{% endif %}. Jistota, převody, výběry, vklady a plánované pohyby se nepočítají; vrácený přeplatek snižuje příjmy.</p>
 
+{% with t=totals prev=report.previous %}
+<h2 class="mb-2 text-lg font-semibold">Nájem</h2>
 <section class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-  <a class="tile" href="{{ income_link }}"><span class="text-sm muted">Příjmy {{ year }}</span><strong class="tile-value">{{ report.income|czk }}</strong>{% if report.previous.income %}<span class="text-sm muted">{{ report.income|change:report.previous.income }} proti {{ report.previous.year }}</span>{% endif %}</a>
-  <a class="tile" href="{{ expense_link }}"><span class="text-sm muted">Náklady {{ year }}</span><strong class="tile-value">{{ report.expense|czk }}</strong>{% if report.previous.expense %}<span class="text-sm muted">{{ report.expense|change:report.previous.expense }} proti {{ report.previous.year }}</span>{% endif %}</a>
-  <div class="tile"><span class="text-sm muted">Zisk {{ year }}</span><strong class="tile-value{% if report.profit < 0 %} expense{% else %} income{% endif %}">{{ report.profit|czk }}</strong>{% if report.previous.income or report.previous.expense %}<span class="text-sm muted">{{ report.previous.year }}: {{ report.previous.profit|czk }}</span>{% endif %}</div>
+  <a class="tile" href="{{ income_link }}"><span class="text-sm muted">Příjmy z nájmu {{ year }}</span><strong class="tile-value">{{ t.rent_income|czk }}</strong>{% if prev.rent_income %}<span class="text-sm muted">{{ t.rent_income|change:prev.rent_income }} proti {{ prev.year }}</span>{% endif %}</a>
+  <a class="tile" href="{{ expense_link }}"><span class="text-sm muted">Náklady nájmu (mimo služby)</span><strong class="tile-value">{{ t.rent_expense|czk }}</strong>{% if prev.rent_expense %}<span class="text-sm muted">{{ t.rent_expense|change:prev.rent_expense }} proti {{ prev.year }}</span>{% endif %}</a>
+  <div class="tile"><span class="text-sm muted">Zisk z nájmu {{ year }}</span><strong class="tile-value{% if t.rent_profit < 0 %} expense{% else %} income{% endif %}">{{ t.rent_profit|czk }}</strong>{% if prev.rent_income or prev.rent_expense %}<span class="text-sm muted">{{ prev.year }}: {{ prev.rent_profit|czk }}</span>{% endif %}</div>
   <div class="tile"><span class="text-sm muted">Účty {% if is_current_year %}dnes{% else %}k 31. 12. {{ year }}{% endif %}</span><strong class="tile-value">{{ report.flows.balance_end|czk }}</strong><span class="text-sm muted">výběry {{ report.flows.withdrawn|czk }} · vklady {{ report.flows.deposited|czk }}</span></div>
 </section>
 
+<h2 class="mb-2 text-lg font-semibold">Služby (průběžné položky)</h2>
+<section class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <div class="tile"><span class="text-sm muted">Příjmy ze služeb (zálohy, vyúčtování)</span><strong class="tile-value">{{ t.service_income|czk }}</strong></div>
+  <div class="tile"><span class="text-sm muted">Náklady na služby</span><strong class="tile-value">{{ t.service_expense|czk }}</strong>{% if prev.service_expense %}<span class="text-sm muted">{{ t.service_expense|change:prev.service_expense }} proti {{ prev.year }}</span>{% endif %}</div>
+  <div class="tile"><span class="text-sm muted">Rozdíl služeb</span><strong class="tile-value">{% if t.service_difference < 0 %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="expense">{{ t.service_difference|czk }}</span>{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> {{ t.service_difference|czk }}{% endif %}</strong><span class="text-sm muted">{% if t.service_difference < 0 %}zálohy nepokryly náklady{% else %}zálohy pokryly náklady{% endif %}</span></div>
+  <div class="tile"><span class="text-sm muted">Zisk celkem (nájem + služby)</span><strong class="tile-value{% if t.profit < 0 %} expense{% endif %}">{{ t.profit|czk }}</strong>{% if prev.income or prev.expense %}<span class="text-sm muted">{{ prev.year }}: {{ prev.profit|czk }}</span>{% endif %}</div>
+</section>
+<p class="mb-4 text-sm muted">Skupinu (nájem / služby) určuje příznak „Služba“ u účelu v <a class="link" href="{% url 'money:categories' %}">Číselníky › Účely</a>. Detail služeb po měsících a energiích je na záložce <a class="link" href="{% url 'rentals:report_services' %}?{{ request.GET.urlencode }}">Služby a energie</a>.</p>
+
 <div class="mb-6">
-  {% include "includes/chart.html" with id="rental-chart" spec=chart title="Příjmy a náklady po měsících" %}
+  {% include "includes/chart.html" with id="rental-chart" spec=chart title="Příjmy z nájmu a náklady nájmu po měsících (bez služeb)" %}
 </div>
 
 <h2 class="mb-2 text-xl font-semibold">Po bytech</h2>
 <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
   <table class="table">
-    <thead><tr><th>Byt / účel</th><th class="amount">Příjmy</th><th class="amount">Náklady</th><th class="amount">Zisk</th></tr></thead>
+    <thead><tr><th>Byt / skupina / účel</th><th class="amount">Příjmy</th><th class="amount">Náklady</th><th class="amount">Výsledek</th></tr></thead>
     <tbody>
       {% for p in report.properties %}
       <tr class="font-semibold">
         <td>{% if p.property_id %}<a class="link" href="{% url 'rentals:property' p.property_id %}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}</td>
         <td class="amount">{{ p.income_total|czk }}</td>
         <td class="amount">{{ p.expense_total|czk }}</td>
-        <td class="amount{% if p.profit < 0 %} expense{% endif %}">{{ p.profit|czk }}</td>
+        <td class="amount{% if p.profit < 0 %} expense{% endif %}">{{ p.profit|czk }} <span class="text-xs font-normal muted">celkem</span></td>
       </tr>
-      {% for name, amount in p.income.items %}<tr><td class="pl-6">{{ name }}</td><td class="amount">{{ amount|czk }}</td><td></td><td></td></tr>{% endfor %}
-      {% for name, amount in p.expense.items %}<tr><td class="pl-6">{{ name }}</td><td></td><td class="amount">{{ amount|czk }}</td><td></td></tr>{% endfor %}
+      {% include "rentals/includes/report_group_rows.html" with g=p.rent label="Nájem" result_label="zisk" %}
+      {% include "rentals/includes/report_group_rows.html" with g=p.services label="Služby" result_label="rozdíl" %}
       {% empty %}
       <tr><td colspan="4">V roce {{ year }} nejsou žádné příjmy ani náklady.</td></tr>
       {% endfor %}
     </tbody>
-    {% if report.properties %}<tfoot><tr><th>Celkem</th><th class="amount">{{ report.income|czk }}</th><th class="amount">{{ report.expense|czk }}</th><th class="amount">{{ report.profit|czk }}</th></tr></tfoot>{% endif %}
+    {% if report.properties %}<tfoot>
+      <tr class="text-sm"><td class="pl-4">Nájem</td><td class="amount">{{ t.rent_income|czk }}</td><td class="amount">{{ t.rent_expense|czk }}</td><td class="amount">{{ t.rent_profit|czk }} <span class="text-xs muted">zisk</span></td></tr>
+      <tr class="text-sm"><td class="pl-4">Služby</td><td class="amount">{{ t.service_income|czk }}</td><td class="amount">{{ t.service_expense|czk }}</td><td class="amount">{{ t.service_difference|czk }} <span class="text-xs muted">rozdíl</span></td></tr>
+      <tr><th>Celkem</th><th class="amount">{{ t.income|czk }}</th><th class="amount">{{ t.expense|czk }}</th><th class="amount">{{ t.profit|czk }}</th></tr>
+    </tfoot>{% endif %}
   </table>
 </div>
 
-<div class="mb-6 grid gap-6 lg:grid-cols-2">
-  <section>
-    <h2 class="mb-2 text-xl font-semibold">Měsíce {{ year }}</h2>
-    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-      <table class="table">
-        <thead><tr><th>Měsíc</th><th class="amount">Příjmy</th><th class="amount">Náklady</th></tr></thead>
-        <tbody>
-          {% for name, income, expense in month_rows %}<tr><td>{{ name }}</td><td class="amount">{{ income|czk }}</td><td class="amount">{{ expense|czk }}</td></tr>{% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-  <section>
-    <h2 class="mb-2 text-xl font-semibold">Po letech</h2>
-    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-      <table class="table">
-        <thead><tr><th>Rok</th><th class="amount">Příjmy</th><th class="amount">Náklady</th><th class="amount">Zisk</th><th class="amount">Změna zisku</th></tr></thead>
-        <tbody>
-          {% for y, older in years_rows %}
-          <tr{% if y.year == year %} class="font-semibold"{% endif %}>
-            <td><a class="link" href="{% url_with year=y.year %}">{{ y.year }}</a></td>
-            <td class="amount">{{ y.income|czk }}</td>
-            <td class="amount">{{ y.expense|czk }}</td>
-            <td class="amount{% if y.profit < 0 %} expense{% endif %}">{{ y.profit|czk }}</td>
-            <td class="amount">{% if older %}{{ y.profit|change:older.profit }}{% else %}–{% endif %}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="5">Zatím žádné příjmy ani náklady.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</div>
+<section class="mb-6">
+  <h2 class="mb-2 text-xl font-semibold">Měsíce {{ year }}</h2>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Měsíc</th><th class="amount">Příjmy z nájmu</th><th class="amount">Náklady nájmu</th><th class="amount">Zisk z nájmu</th><th class="amount">Služby příjmy</th><th class="amount">Služby náklady</th><th class="amount">Rozdíl služeb</th><th class="amount">Celkem</th></tr></thead>
+      <tbody>
+        {% for name, m in month_rows %}
+        <tr><td>{{ name }}</td><td class="amount">{{ m.rent_income|czk }}</td><td class="amount">{{ m.rent_expense|czk }}</td><td class="amount{% if m.rent_profit < 0 %} expense{% endif %}">{{ m.rent_profit|czk }}</td><td class="amount">{{ m.service_income|czk }}</td><td class="amount">{{ m.service_expense|czk }}</td><td class="amount{% if m.service_difference < 0 %} expense{% endif %}">{{ m.service_difference|czk }}</td><td class="amount">{{ m.profit|czk }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-6">
+  <h2 class="mb-2 text-xl font-semibold">Po letech</h2>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="table">
+      <thead><tr><th>Rok</th><th class="amount">Zisk z nájmu</th><th class="amount">Změna</th><th class="amount">Rozdíl služeb</th><th class="amount">Zisk celkem</th><th class="amount">Změna</th></tr></thead>
+      <tbody>
+        {% for y, older in years_rows %}
+        <tr{% if y.year == year %} class="font-semibold"{% endif %}>
+          <td><a class="link" href="{% url_with year=y.year %}">{{ y.year }}</a></td>
+          <td class="amount{% if y.rent_profit < 0 %} expense{% endif %}">{{ y.rent_profit|czk }}</td>
+          <td class="amount">{% if older %}{{ y.rent_profit|change:older.rent_profit }}{% else %}–{% endif %}</td>
+          <td class="amount{% if y.service_difference < 0 %} expense{% endif %}">{{ y.service_difference|czk }}</td>
+          <td class="amount{% if y.profit < 0 %} expense{% endif %}">{{ y.profit|czk }}</td>
+          <td class="amount">{% if older %}{{ y.profit|change:older.profit }}{% else %}–{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">Zatím žádné příjmy ani náklady.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endwith %}
 
 <section class="card mb-6">
   <h2 class="mb-2 text-lg font-semibold">Podklad pro daňové přiznání {{ year }} (příjmy z nájmu, § 9)</h2>
