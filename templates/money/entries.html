@@ -76,7 +76,7 @@
   <table class="table">
     <thead>
       <tr>
-        <th class="w-8"><input type="checkbox" data-select-all="recategorize" aria-label="Označit všechny příjmy a náklady na stránce"></th>
+        <th class="w-8"><input type="checkbox" data-select-all="bulk" aria-label="Označit všechny pohyby na stránce"></th>
         <th>{% sort_link "Datum" "date" %}</th>
         <th>Druh</th>
         <th>{% sort_link "Účel" "category" %}</th>
@@ -90,7 +90,7 @@
     <tbody>
       {% for e in page.rows %}
       <tr class="{% if e.date > today %}italic text-slate-500{% endif %}{% if e.id == saved_id %} !bg-yellow-100{% endif %}">
-        <td>{% if e.kind == 'INCOME' or e.kind == 'EXPENSE' %}<input type="checkbox" name="entries" value="{{ e.id }}" form="recategorize" aria-label="Označit pohyb {{ e.date|cz_date }} {{ e.amount_cents|czk }}">{% endif %}</td>
+        <td><input type="checkbox" name="entries" value="{{ e.id }}" form="bulk" aria-label="Označit pohyb {{ e.date|cz_date }} {{ e.amount_cents|czk }}"></td>
         <td class="whitespace-nowrap">{{ e.date|cz_date }}{% if e.date > today %} <span class="badge">plánováno</span>{% endif %}</td>
         <td>{{ e.get_kind_display }}</td>
         <td>{{ e.category.name|default:"–" }}</td>
@@ -111,17 +111,24 @@
 </div>
 
 {% if page.rows %}
-<form id="recategorize" method="post" action="{% url 'money:entries_recategorize' %}" class="card mt-3 flex flex-wrap items-end gap-3">
+<form id="bulk" method="post" action="{% url 'money:entries_recategorize' %}" class="card mt-3 space-y-3">
   {% csrf_token %}
   <input type="hidden" name="back" value="{{ here }}">
-  <p class="w-full text-sm"><strong data-selected-count="recategorize">Označeno: nic</strong> <span class="muted">– hromadná změna účelu (jen příjmy a náklady; platí stejná pravidla jako při úpravě pohybu, zapíše se vše, nebo nic)</span></p>
-  <label class="field">Nový účel
-    <select class="input" name="category_id" required>
-      <option value="">— vyber účel —</option>
-      {% for c in all_categories %}<option value="{{ c.id }}">{{ c.name }} ({{ c.get_kind_display }})</option>{% endfor %}
-    </select>
-  </label>
-  <button type="submit" class="btn btn-secondary">Změnit účel označených</button>
+  <p class="text-sm"><strong data-selected-count="bulk">Označeno: nic</strong> <span class="muted">– akce pro označené pohyby (vše, nebo nic)</span></p>
+  <div class="flex flex-wrap items-end gap-3">
+    <label class="field">Nový účel
+      <select class="input" name="category_id">
+        <option value="">— vyber účel —</option>
+        {% for c in all_categories %}<option value="{{ c.id }}">{{ c.name }} ({{ c.get_kind_display }})</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn btn-secondary">Změnit účel označených</button>
+    <span class="text-xs muted">jen příjmy a náklady; stejná pravidla jako při úpravě pohybu</span>
+  </div>
+  <div class="border-t border-slate-200 pt-3">
+    <button type="submit" formaction="{% url 'money:entries_delete' %}" class="btn btn-danger">Smazat označené…</button>
+    <span class="ml-2 text-xs muted">nejdřív se ukáže souhrn a dopady k potvrzení</span>
+  </div>
 </form>
 {% endif %}
 
