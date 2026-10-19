@@ -23,7 +23,7 @@ from apps.core.web import opt_int
 from apps.money.models import Entry
 from apps.money.payable_forms import PayDuesForm
 from apps.money.services.accounts import account_choices, list_accounts
-from apps.money.services.entries import result_for
+from apps.money.services.entries import split_result_for
 from apps.money.services.payables import current_payables, due_amount, open_dues
 from apps.rentals.forms import (
     AmendmentForm,
@@ -183,7 +183,7 @@ def overview(request: HttpRequest) -> HttpResponse:
             "overdue_total": sum(d["balance"].overdue for d in debtor_rows),
             "accounts": accounts,
             "total": sum(a.balance_cents for a in accounts),
-            "result": result_for(date(today.year, 1, 1), date(today.year, 12, 31), today),
+            "split": split_result_for(date(today.year, 1, 1), date(today.year, 12, 31), today),
             "planned_count": Entry.objects.filter(date__gt=today).count(),
         },
     )
@@ -333,7 +333,9 @@ def property_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "open_repairs": open_repairs(prop).count(),
             "communications": communications[:20],
             "follow_ups": open_follow_ups(prop).count(),
-            "result": result_for(date(today.year, 1, 1), date(today.year, 12, 31), today, prop.pk),
+            "split": split_result_for(
+                date(today.year, 1, 1), date(today.year, 12, 31), today, prop.pk
+            ),
             "pay_form": PayDuesForm(initial={"date_mode": "due"}),
         },
     )

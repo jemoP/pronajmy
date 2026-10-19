@@ -106,6 +106,8 @@ class Category(models.Model):
     active = models.BooleanField("aktivní", default=True)
     # Průběžné položky (služby přeposílané dodavatelům) do podkladu pro daně nepatří (ZM-004).
     taxable = models.BooleanField("počítat do daní", default=True)
+    # Služba (průběžná položka) – výsledek se dělí na nájem a služby (ZM-008).
+    is_service = models.BooleanField("služba (průběžná položka)", default=False)
 
     class Meta:
         db_table = "category"

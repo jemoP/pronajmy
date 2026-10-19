@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 18. 10. 2026, ZM-007 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 19. 10. 2026, ZM-008 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -54,7 +54,7 @@ zobrazení v Europe/Prague. Názvy tabulek odpovídají tabulce níže (`Meta.db
 | Tabulka | Klíčové sloupce | Poznámka |
 | --- | --- | --- |
 | `account` | id, name, kind (BANK / CASH), bank_code, account_number, opening_balance_cents, active | Účet pronájmů; zůstatek = počáteční stav + příchozí − odchozí pohyby |
-| `category` | id, name, kind (INCOME / EXPENSE / NEUTRAL), code, sort, active, taxable | Účel pohybu; `code` = interní označení výchozího účelu (unikátní, u účelů přidaných uživatelem prázdné); `taxable` = počítá se do podkladu pro daně (výchozí ano) |
+| `category` | id, name, kind (INCOME / EXPENSE / NEUTRAL), code, sort, active, taxable, is_service | Účel pohybu; `code` = interní označení výchozího účelu (unikátní, u účelů přidaných uživatelem prázdné); `taxable` = počítá se do podkladu pro daně (výchozí ano); `is_service` = služba, průběžná položka (výchozí ne, ZM-008) |
 | `entry` | id, date, kind (INCOME / EXPENSE / TRANSFER / WITHDRAWAL / DEPOSIT), amount_cents (> 0), account_id, to_account_id, category_id, property_id, note, created_at, updated_at | Pohyb peněz |
 
 Výchozí účely (datová migrace): příjmy Nájemné, Zálohy na služby, Vyúčtování služeb, Ostatní
@@ -67,8 +67,9 @@ INSPECTION, INSURANCE, PROPERTY_TAX, HOA_FUND, UTILITIES, ELECTRICITY, GAS, WATE
 WATER_HOT, HEATING, MANAGEMENT, FEES, OTHER_EXPENSE, DEPOSIT), podle kterého je aplikace najde i po přejmenování. Účel s kódem jde přejmenovat,
 přeřadit a deaktivovat, ale ne smazat ani změnit jeho druh.
 
-Služby a energie (ZM-007): účely s kódem UTILITIES (ostatní služby), ELECTRICITY, GAS, WATER_COLD,
-WATER_HOT a HEATING tvoří přehled služeb; zálohy = příjmy s kódem SERVICES (vrácené snižují).
+Služby a energie (ZM-007, ZM-008): přehled služeb tvoří nákladové účely s příznakem `is_service`
+(výchozí: Služby, Elektřina, Plyn, Studená voda, Teplá voda, Vytápění); zálohy = příjmové účely
+s příznakem kromě Vyúčtování služeb (vrácené snižují), vyúčtování = účel s kódem SETTLEMENT.
 Hromadná změna účelu převede označené příjmy / náklady na zvolený účel; platí stejná pravidla
 jako při úpravě pohybu (druh účelu, byt) a zapíše se vše, nebo nic.
 
@@ -88,6 +89,11 @@ Pravidla pohybů:
 - Výsledek: příjmy = INCOME s účelem druhu INCOME − EXPENSE s účelem druhu INCOME (vrácení
   příjmu snižuje příjmy, ne zvyšuje náklady); náklady = EXPENSE s účelem druhu EXPENSE;
   zisk = příjmy − náklady. Neutrální účely (jistota), převody, výběry a vklady se nepočítají.
+- Výsledek se dělí na dvě oddělená porovnání (ZM-008): **nájem** = příjmy a náklady s účely bez
+  příznaku `is_service` → zisk z nájmu; **služby** = s příznakem (zálohy a vyúčtování proti
+  energiím a službám) → rozdíl služeb (kladný = zálohy pokryly náklady). Celkový zisk = zisk
+  z nájmu + rozdíl služeb. Výchozí příznak mají Zálohy na služby, Vyúčtování služeb, Služby
+  a energie; Fond oprav / SVJ patří do nájmu. Příznak je nezávislý na `taxable`.
 - Pohyb s datem v budoucnosti je plánovaný: nepočítá se do aktuálního zůstatku ani výsledku.
 
 ### Platby dodavatelům (aplikace `money`, ZM-006)
@@ -197,7 +203,7 @@ ověření vodoměrů 60.
 | P09 | Opravy | Stav, dodavatel, náklady, kdo platí, výdaj, přílohy | Musí |
 | P10 | Revize | Plán po bytech a zařízeních, historie s protokoly, příští termín, číselník druhů | Musí |
 | P11 | Přehledy | Upozornění na všech stránkách a v přehledu pronájmů | Má |
-| P12 | Přehledy | Výkaz po bytech a měsících / letech (příjmy, náklady podle účelů, zisk, meziročně, graf), zůstatky účtů, výběry a vklady; přehled služeb po bytech a měsících (elektřina, plyn, voda, vytápění, ostatní služby) proti zálohám na služby od nájemníka, meziročně, export (ZM-007) | Musí |
+| P12 | Přehledy | Výkaz po bytech a měsících / letech (příjmy, náklady podle účelů, zisk odděleně za nájem a za služby – ZM-008, meziročně, graf), zůstatky účtů, výběry a vklady; přehled služeb po bytech a měsících (elektřina, plyn, voda, vytápění, ostatní služby) proti zálohám na služby od nájemníka, meziročně, export (ZM-007) | Musí |
 | P13 | Přehledy | Podklad pro daňové přiznání (§ 9): příjmy, skutečné výdaje proti paušálu 30 %, nejvýš 600 000 Kč ročně; jen účely s příznakem „počítat do daní“ (bez záloh, vyúčtování a nákladu Služby); upozornění, že skutečné výdaje nezahrnují odpisy ani úroky | Má |
 | P14 | Export | Export pohybů a výkazu do CSV (český Excel: UTF-8 s BOM, středník, desetinná čárka) a XLSX; bez kontaktů nájemníků a čísel účtů | Má |
 | P15 | Zálohy | Denní šifrovaná záloha databáze a příloh, kontrola a obnova | Musí |

@@ -136,9 +136,9 @@
 {% endif %}
 
 <details id="pohyby" class="card-section" data-remember>
-  <summary class="card-summary"><h2 class="text-xl font-semibold">Pohyby bytu</h2><span class="text-sm muted">zisk {{ today.year }}: {{ result.profit_cents|czk }}</span></summary>
+  <summary class="card-summary"><h2 class="text-xl font-semibold">Pohyby bytu</h2><span class="text-sm muted">{{ today.year }}: zisk z nájmu {{ split.rent.profit_cents|czk }} · rozdíl služeb {{ split.services.profit_cents|czk }}</span></summary>
   <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <p class="text-sm">Výsledek {{ today.year }}: příjmy <span class="income">{{ result.income_cents|czk }}</span>, náklady <span class="expense">{{ result.expense_cents|czk }}</span>, zisk <strong>{{ result.profit_cents|czk }}</strong></p>
+    <p class="text-sm">Výsledek {{ today.year }}: <strong>nájem</strong> – příjmy <span class="income">{{ split.rent.income_cents|czk }}</span>, náklady <span class="expense">{{ split.rent.expense_cents|czk }}</span>, zisk <strong>{{ split.rent.profit_cents|czk }}</strong> · <strong>služby</strong> – zálohy a vyúčtování {{ split.services.income_cents|czk }}, náklady {{ split.services.expense_cents|czk }}, rozdíl <strong{% if split.services.profit_cents < 0 %} class="expense"{% endif %}>{{ split.services.profit_cents|czk }}</strong> · celkem <strong>{{ split.total.profit_cents|czk }}</strong></p>
     <a class="link" href="{% url 'money:entries' %}?property={{ property.pk }}">Všechny pohyby bytu</a>
   </div>
   <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">

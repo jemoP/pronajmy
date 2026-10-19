@@ -3,7 +3,8 @@
 Počítá stejně jako výsledek v pohybech: příjmy a náklady s účelem druhu příjem / náklad do
 dneška včetně; náklad s účelem druhu příjem (vrácení příjmu, ZM-003) snižuje příjmy svého
 účelu. Jistota (neutrální účel), převody, výběry a vklady se nepočítají. Do podkladu pro daně
-patří jen účely s příznakem taxable (ZM-004).
+patří jen účely s příznakem taxable (ZM-004). Výsledek se dělí na nájem a služby podle
+příznaku účelu is_service (ZM-008); celkem = nájem + služby.
 """
 
 from collections import defaultdict
@@ -22,6 +23,7 @@ from apps.rentals.models import Property
 FLAT_RATE_PERCENT = 30
 FLAT_RATE_CAP = 600_000_00
 NO_PROPERTY = "Bez bytu"
+RENT, SERVICES = "rent", "services"  # skupiny výsledku (ZM-008)
 
 
 def result_entries(date_from: date, date_to: date, today: date) -> QuerySet[Entry]:
@@ -41,10 +43,14 @@ def signed(kind: str, category_kind: str, total: int) -> tuple[str, int]:
     return "expense", total
 
 
+def group_of(is_service: bool | None) -> str:
+    return SERVICES if is_service else RENT
+
+
 @dataclass
-class PropertyResult:
-    property_id: int | None
-    name: str
+class GroupResult:
+    """Příjmy a náklady jedné skupiny (nájem / služby) podle účelů."""
+
     income: dict[str, int] = field(default_factory=dict)  # účel → haléře
     expense: dict[str, int] = field(default_factory=dict)
 
@@ -55,6 +61,38 @@ class PropertyResult:
     @property
     def expense_total(self) -> int:
         return sum(self.expense.values())
+
+    @property
+    def result(self) -> int:
+        """Nájem: zisk; služby: rozdíl (kladný = zálohy pokryly náklady)."""
+        return self.income_total - self.expense_total
+
+    def add(self, side: str, name: str, amount: int) -> None:
+        target = self.income if side == "income" else self.expense
+        target[name] = target.get(name, 0) + amount
+
+    def sort(self) -> None:
+        self.income = dict(sorted(self.income.items(), key=lambda i: czech_sort_key(i[0])))
+        self.expense = dict(sorted(self.expense.items(), key=lambda i: czech_sort_key(i[0])))
+
+
+@dataclass
+class PropertyResult:
+    property_id: int | None
+    name: str
+    rent: GroupResult = field(default_factory=GroupResult)
+    services: GroupResult = field(default_factory=GroupResult)
+
+    def group(self, name: str) -> GroupResult:
+        return self.services if name == SERVICES else self.rent
+
+    @property
+    def income_total(self) -> int:
+        return self.rent.income_total + self.services.income_total
+
+    @property
+    def expense_total(self) -> int:
+        return self.rent.expense_total + self.services.expense_total
 
     @property
     def profit(self) -> int:
@@ -95,35 +133,81 @@ class AccountFlows:
 @dataclass(frozen=True)
 class YearResult:
     year: int
-    income: int
-    expense: int
+    rent_income: int = 0
+    rent_expense: int = 0
+    service_income: int = 0
+    service_expense: int = 0
+
+    @property
+    def income(self) -> int:
+        return self.rent_income + self.service_income
+
+    @property
+    def expense(self) -> int:
+        return self.rent_expense + self.service_expense
 
     @property
     def profit(self) -> int:
         return self.income - self.expense
+
+    @property
+    def rent_profit(self) -> int:
+        return self.rent_income - self.rent_expense
+
+    @property
+    def service_difference(self) -> int:
+        return self.service_income - self.service_expense
+
+
+def year_result_from(year: int, sums: dict[tuple[str, str], int]) -> YearResult:
+    """YearResult z {(skupina, strana): částka}."""
+    return YearResult(
+        year,
+        sums.get((RENT, "income"), 0),
+        sums.get((RENT, "expense"), 0),
+        sums.get((SERVICES, "income"), 0),
+        sums.get((SERVICES, "expense"), 0),
+    )
 
 
 @dataclass(frozen=True)
 class RentalReport:
     year: int
     properties: list[PropertyResult]
-    months_income: list[int]
-    months_expense: list[int]
+    months: list[YearResult]  # 12 měsíců (pole year = číslo měsíce)
     previous: YearResult
     tax: TaxSummary
     flows: AccountFlows
 
     @property
+    def totals(self) -> YearResult:
+        return YearResult(
+            self.year,
+            sum(p.rent.income_total for p in self.properties),
+            sum(p.rent.expense_total for p in self.properties),
+            sum(p.services.income_total for p in self.properties),
+            sum(p.services.expense_total for p in self.properties),
+        )
+
+    @property
     def income(self) -> int:
-        return sum(p.income_total for p in self.properties)
+        return self.totals.income
 
     @property
     def expense(self) -> int:
-        return sum(p.expense_total for p in self.properties)
+        return self.totals.expense
 
     @property
     def profit(self) -> int:
         return self.income - self.expense
+
+    @property
+    def months_income(self) -> list[int]:
+        return [m.income for m in self.months]
+
+    @property
+    def months_expense(self) -> list[int]:
+        return [m.expense for m in self.months]
 
 
 def flat_rate(income: int) -> int:
@@ -174,15 +258,18 @@ def tax_summary(qs: QuerySet[Entry]) -> TaxSummary:
     return TaxSummary(income, expense, excluded["income"], excluded["expense"])
 
 
+GROUPED = ("kind", "category__kind", "category__is_service")
+
+
 def year_result(year: int, today: date, property_id: int | None = None) -> YearResult:
     qs = result_entries(*year_bounds(year), today)
     if property_id:
         qs = qs.filter(property_id=property_id)
-    sides = {"income": 0, "expense": 0}
-    for row in qs.values("kind", "category__kind").annotate(total=Sum("amount_cents")).order_by():
+    sums: dict[tuple[str, str], int] = defaultdict(int)
+    for row in qs.values(*GROUPED).annotate(total=Sum("amount_cents")).order_by():
         side, amount = signed(row["kind"], row["category__kind"], row["total"] or 0)
-        sides[side] += amount
-    return YearResult(year, sides["income"], sides["expense"])
+        sums[(group_of(row["category__is_service"]), side)] += amount
+    return year_result_from(year, sums)
 
 
 def rental_report(year: int, today: date, property_id: int | None = None) -> RentalReport:
@@ -192,7 +279,7 @@ def rental_report(year: int, today: date, property_id: int | None = None) -> Ren
     names = {p.id: p.name for p in Property.objects.all()}
     results: dict[int | None, PropertyResult] = {}
     rows = (
-        qs.values("property_id", "category__name", "category__kind", "kind")
+        qs.values("property_id", "category__name", *GROUPED)
         .annotate(total=Sum("amount_cents"))
         .order_by()
     )
@@ -200,33 +287,30 @@ def rental_report(year: int, today: date, property_id: int | None = None) -> Ren
         pid = row["property_id"]
         result = results.setdefault(pid, PropertyResult(pid, names.get(pid, NO_PROPERTY)))
         side, amount = signed(row["kind"], row["category__kind"], row["total"] or 0)
-        target = result.income if side == "income" else result.expense
-        name = row["category__name"]
-        target[name] = target.get(name, 0) + amount
+        result.group(group_of(row["category__is_service"])).add(side, row["category__name"], amount)
 
-    months: dict[str, list[int]] = {"income": [0] * 12, "expense": [0] * 12}
+    months: list[dict[tuple[str, str], int]] = [defaultdict(int) for _ in range(12)]
     by_month = (
         qs.annotate(m=ExtractMonth("date"))
-        .values("m", "kind", "category__kind")
+        .values("m", *GROUPED)
         .annotate(total=Sum("amount_cents"))
         .order_by()
     )
     for month_row in by_month:
         total = month_row["total"] or 0
         side, amount = signed(month_row["kind"], month_row["category__kind"], total)
-        months[side][month_row["m"] - 1] += amount
+        months[month_row["m"] - 1][(group_of(month_row["category__is_service"]), side)] += amount
 
     ordered = sorted(
         results.values(), key=lambda r: (r.property_id is None, czech_sort_key(r.name))
     )
     for result in ordered:
-        result.income = dict(sorted(result.income.items(), key=lambda i: czech_sort_key(i[0])))
-        result.expense = dict(sorted(result.expense.items(), key=lambda i: czech_sort_key(i[0])))
+        result.rent.sort()
+        result.services.sort()
     return RentalReport(
         year=year,
         properties=ordered,
-        months_income=months["income"],
-        months_expense=months["expense"],
+        months=[year_result_from(m + 1, months[m]) for m in range(12)],
         previous=year_result(year - 1, today, property_id),
         tax=tax_summary(qs),
         flows=account_flows(year, today),
@@ -238,19 +322,17 @@ def years_overview(today: date, property_id: int | None = None) -> list[YearResu
     qs = result_entries(date.min, date.max, today)
     if property_id:
         qs = qs.filter(property_id=property_id)
-    sides: dict[int, dict[str, int]] = defaultdict(lambda: {"income": 0, "expense": 0})
+    sums: dict[int, dict[tuple[str, str], int]] = defaultdict(lambda: defaultdict(int))
     rows = (
         qs.annotate(y=ExtractYear("date"))
-        .values("y", "kind", "category__kind")
+        .values("y", *GROUPED)
         .annotate(total=Sum("amount_cents"))
         .order_by()
     )
     for row in rows:
         side, amount = signed(row["kind"], row["category__kind"], row["total"] or 0)
-        sides[row["y"]][side] += amount
-    return [
-        YearResult(y, v["income"], v["expense"]) for y, v in sorted(sides.items(), reverse=True)
-    ]
+        sums[row["y"]][(group_of(row["category__is_service"]), side)] += amount
+    return [year_result_from(y, v) for y, v in sorted(sums.items(), reverse=True)]
 
 
 def report_years(today: date) -> list[int]:

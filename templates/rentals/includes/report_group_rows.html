@@ -1,0 +1,11 @@
+{# Řádky jedné skupiny bytu ve výkazu (ZM-008). g = GroupResult, label = Nájem / Služby, result_label = Zisk / Rozdíl #}
+{% if g.income or g.expense %}
+<tr class="text-sm">
+  <td class="pl-4 font-medium">{{ label }}</td>
+  <td class="amount font-medium">{{ g.income_total|czk }}</td>
+  <td class="amount font-medium">{{ g.expense_total|czk }}</td>
+  <td class="amount font-medium{% if g.result < 0 %} expense{% endif %}">{{ g.result|czk }} <span class="text-xs muted">{{ result_label }}</span></td>
+</tr>
+{% for name, amount in g.income.items %}<tr class="text-sm"><td class="pl-10 muted">{{ name }}</td><td class="amount">{{ amount|czk }}</td><td></td><td></td></tr>{% endfor %}
+{% for name, amount in g.expense.items %}<tr class="text-sm"><td class="pl-10 muted">{{ name }}</td><td></td><td class="amount">{{ amount|czk }}</td><td></td></tr>{% endfor %}
+{% endif %}

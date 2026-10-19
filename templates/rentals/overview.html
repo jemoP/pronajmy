@@ -67,11 +67,11 @@
 
 <h2 class="mb-2 text-xl font-semibold">Výsledek {{ today.year }}</h2>
 <div class="mb-2 grid gap-3 sm:grid-cols-3">
-  <a class="tile" href="{% url 'money:entries' %}?kind=INCOME&date_from={{ today.year }}-01-01&date_to={{ today.year }}-12-31"><span class="text-sm muted">Příjmy</span><span class="tile-value income">{{ result.income_cents|czk }}</span></a>
-  <a class="tile" href="{% url 'money:entries' %}?kind=EXPENSE&date_from={{ today.year }}-01-01&date_to={{ today.year }}-12-31"><span class="text-sm muted">Náklady</span><span class="tile-value expense">{{ result.expense_cents|czk }}</span></a>
-  <div class="tile"><span class="text-sm muted">Zisk</span><span class="tile-value {% if result.profit_cents < 0 %}expense{% endif %}">{{ result.profit_cents|czk }}</span></div>
+  <a class="tile" href="{% url 'rentals:report' %}"><span class="text-sm muted">Zisk z nájmu</span><span class="tile-value {% if split.rent.profit_cents < 0 %}expense{% else %}income{% endif %}">{{ split.rent.profit_cents|czk }}</span><span class="text-sm muted">příjmy {{ split.rent.income_cents|czk }} · náklady {{ split.rent.expense_cents|czk }}</span></a>
+  <a class="tile" href="{% url 'rentals:report_services' %}"><span class="text-sm muted">Rozdíl služeb</span><span class="tile-value">{% if split.services.profit_cents < 0 %}<span aria-hidden="true" style="color: var(--status-over)">✕</span> <span class="expense">{{ split.services.profit_cents|czk }}</span>{% else %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> {{ split.services.profit_cents|czk }}{% endif %}</span><span class="text-sm muted">zálohy a vyúčtování {{ split.services.income_cents|czk }} · náklady {{ split.services.expense_cents|czk }}</span></a>
+  <div class="tile"><span class="text-sm muted">Zisk celkem</span><span class="tile-value {% if split.total.profit_cents < 0 %}expense{% endif %}">{{ split.total.profit_cents|czk }}</span><span class="text-sm muted">nájem + služby</span></div>
 </div>
-<p class="mb-6 text-sm muted">Bez jistot, převodů, výběrů a vkladů{% if planned_count %} a bez {{ planned_count }} plánovaných pohybů{% endif %}.</p>
+<p class="mb-6 text-sm muted">Bez jistot, převodů, výběrů a vkladů{% if planned_count %} a bez {{ planned_count }} plánovaných pohybů{% endif %}. Služby = průběžné položky (zálohy a vyúčtování proti energiím a službám).</p>
 
 <h2 class="mb-2 text-xl font-semibold">Zůstatky účtů</h2>
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
