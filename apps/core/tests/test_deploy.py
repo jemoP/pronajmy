@@ -140,3 +140,63 @@ def test_init_env_version_from_image(monkeypatch: pytest.MonkeyPatch) -> None:
     # Místní build nemá číslo verze – výchozí latest.
     monkeypatch.setenv("APP_VERSION", "místní")
     assert "PRONAJMY_VERSION=latest\n" in init_env.render("http://192.168.1.50:8080")
+
+
+def test_init_env_uid_gid() -> None:
+    text = init_env.render("http://192.168.1.50:8080", uid=1001, gid=1002)
+    assert "BACKUP_UID=1001\n" in text and "BACKUP_GID=1002\n" in text
+
+
+def test_init_env_detects_address(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(init_env, "detect_ip", lambda: "192.168.88.108")
+    assert init_env.main([]) == 0
+    out = capsys.readouterr()
+    assert "PRONAJMY_URL=http://192.168.88.108:8080\n" in out.out
+    assert "dostupná na http://192.168.88.108:8080" in out.err
+    assert "Pozor" not in out.err
+
+
+def test_init_env_warns_on_other_address(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(init_env, "detect_ip", lambda: "192.168.88.108")
+    assert init_env.main(["--url", "http://192.168.1.50:8080"]) == 0
+    out = capsys.readouterr()
+    assert "PRONAJMY_URL=http://192.168.1.50:8080\n" in out.out
+    assert "Pozor" in out.err and "192.168.88.108" in out.err
+    assert "Pozor" not in out.out  # varování nepatří do .env
+    # Jméno (Tailscale) se neověřuje.
+    assert init_env.main(["--url", "https://pronajmy.example.ts.net"]) == 0
+    assert "Pozor" not in capsys.readouterr().err
+
+
+def test_init_env_without_address(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(init_env, "detect_ip", lambda: None)
+    assert init_env.main([]) == 2
+    assert "--network host" in capsys.readouterr().err
+
+
+def test_detect_ip_ignores_docker_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeSocket:
+        def __init__(self, address: str) -> None:
+            self.address = address
+
+        def __enter__(self) -> "FakeSocket":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def connect(self, target: tuple[str, int]) -> None:
+            return None
+
+        def getsockname(self) -> tuple[str, int]:
+            return (self.address, 0)
+
+    for address, expected in (("172.17.0.2", None), ("192.168.88.108", "192.168.88.108")):
+        monkeypatch.setattr("config.init_env.socket.socket", lambda *a, ad=address: FakeSocket(ad))
+        assert init_env.detect_ip() == expected

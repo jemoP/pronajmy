@@ -57,3 +57,12 @@ def test_password_change(auth_client: Client) -> None:
         },
     ).content.decode()
     assert "aria-invalid" in weak
+
+
+def test_bad_host_shows_czech_hint(settings: object) -> None:
+    settings.DEBUG = False  # type: ignore[attr-defined]
+    settings.ALLOWED_HOSTS = ["192.168.88.108"]  # type: ignore[attr-defined]
+    client = Client(raise_request_exception=False)
+    response = client.get("/login/", HTTP_HOST="192.168.1.50:8080")
+    assert response.status_code == 400
+    assert "PRONAJMY_URL" in response.content.decode()

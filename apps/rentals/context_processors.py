@@ -10,7 +10,9 @@ MAX_SHOWN = 5  # víc upozornění v hlavičce stránky nezobrazovat
 
 def alerts(request: HttpRequest) -> dict[str, Any]:
     """Upozornění na všech stránkách (jen přihlášenému); celý seznam je v přehledu."""
-    if not request.user.is_authenticated:
+    # Chybové stránky (např. 400 při nepovolené adrese) vznikají i bez middlewaru přihlášení.
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
         return {}
     items = rental_alerts(timezone.localdate())
     return {

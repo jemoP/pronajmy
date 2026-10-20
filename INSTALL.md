@@ -15,8 +15,8 @@ Postup má dvě části: nejdřív si vyzkoušíte **demo** se smyšlenými daty
 - Docker s Compose v2: `docker compose version` vypíše verzi. Instalace na Raspberry Pi OS:
   `curl -fsSL https://get.docker.com | sh` a `sudo usermod -aG docker $USER` (pak se odhlásit
   a přihlásit).
-- Pevná IP adresa Pi v domácí síti (rezervace v routeru), např. `192.168.1.50`. V návodu ji
-  nahraďte svou.
+- Pevná IP adresa Pi v domácí síti (rezervace v routeru). Zjistíte ji příkazem
+  `hostname -I` (první adresa). V návodu je jako příklad `192.168.1.50` – nahraďte ji svou.
 - Účet na GitHubu s přístupem ke čtení balíčku `pronajmy` (přidělí autor).
 
 ## 2. Přístup k image
@@ -49,24 +49,27 @@ docker compose -f compose.demo.yml down -v                  # konec dema včetn�
 ```sh
 mkdir -p ~/pronajmy && cd ~/pronajmy                # sem zkopírujte compose.yml
 mkdir backups
-docker run --rm ghcr.io/jemop/pronajmy:@VERZE@ init-env --url http://192.168.1.50:8080 > .env
+docker run --rm --network host ghcr.io/jemop/pronajmy:@VERZE@ init-env --uid "$(id -u)" --gid "$(id -g)" > .env
 chmod 600 .env
 docker compose up -d
 ```
 
-- `init-env` vygeneruje `.env` s novými hesly. **Ze souboru `.env` si opište mimo Pi heslo
-  záloh `BACKUP_PASSPHRASE` a heslo účtu `PRONAJMY_ADMIN_PASSWORD`** (správce hesel, papír).
-  Bez hesla záloh nejdou zálohy obnovit.
-- Pokud `id -u` na Pi nevypíše `1000`, upravte v `.env` `BACKUP_UID` a `BACKUP_GID`
-  (vlastník souborů záloh).
-- Otevřete `http://192.168.1.50:8080`, přihlaste se jménem `spravce` a heslem z `.env`
+- `init-env` vygeneruje `.env` s novými hesly, sám zjistí IP adresu Pi a vypíše, na jaké
+  adrese bude aplikace dostupná (např. `Aplikace bude dostupná na http://192.168.1.50:8080`).
+  Jinou adresu nebo port zadáte parametrem `--url http://<IP>:<port>`; když adresa nepatří
+  tomuto počítači, `init-env` upozorní.
+- **Ze souboru `.env` si opište mimo Pi heslo záloh `BACKUP_PASSPHRASE` a heslo účtu
+  `PRONAJMY_ADMIN_PASSWORD`** (správce hesel, papír). Bez hesla záloh nejdou zálohy obnovit.
+- Otevřete vypsanou adresu, přihlaste se jménem `spravce` a heslem z `.env`
   a hned si heslo změňte (kliknutím na jméno v horní liště). Heslo v `.env` se pak už
   nepoužívá a aplikace ho nikdy nepřepíše.
 - Na Přehledu vás provedou **První kroky**: účet, byt, nájemník, smlouva. Výchozí účely
   a druhy revizí jsou připravené.
 
-Aplikace je dostupná jen na adrese z `--url`. Jinou adresu (např. `raspberrypi.local`) doplňte
-do `.env` řádkem `DJANGO_ALLOWED_HOSTS=raspberrypi.local` a spusťte `docker compose up -d`.
+Aplikace je dostupná jen na adrese `PRONAJMY_URL` z `.env` (vypíše ji i
+`docker compose logs web | grep dostupná`). Jinou adresu (např. `raspberrypi.local`) doplňte
+do `.env` řádkem `DJANGO_ALLOWED_HOSTS=raspberrypi.local` a spusťte
+`docker compose up -d --force-recreate web`.
 
 Spojení v domácí síti je po HTTP (nešifrované). Aplikaci proto nezpřístupňujte z internetu
 (žádné přesměrování portu na routeru).
@@ -110,6 +113,8 @@ docker compose start web
 
 ## 6. Aktualizace na novou verzi
 
+Co je v nové verzi, popisuje `CHANGELOG.md` v instalačním balíčku.
+
 ```sh
 cd ~/pronajmy
 docker compose exec backup /bin/sh /backup.sh now    # záloha před aktualizací
@@ -140,6 +145,10 @@ kontakty nedává do exportů a nic neposílá mimo váš počítač.
 
 - Stav služeb: `docker compose ps`, logy aplikace: `docker compose logs web`, záloh:
   `docker compose logs backup`.
-- „Bad Request (400)“ – adresa v prohlížeči se liší od `PRONAJMY_URL` (viz konec bodu 4).
+- „Neplatný požadavek (400)“ – adresa v prohlížeči se liší od `PRONAJMY_URL` v `.env`.
+  Oprava: `sed -i 's#^PRONAJMY_URL=.*#PRONAJMY_URL=http://<IP>:8080#' .env` a
+  `docker compose up -d --force-recreate web` (viz konec bodu 4).
+- Soubory v `backups/` nejdou smazat – v `.env` nesedí `BACKUP_UID` / `BACKUP_GID` s výstupem
+  `id -u` / `id -g`; opravte je a spusťte `docker compose up -d --force-recreate backup`.
 - `unauthorized` při stahování image – chybí `docker login ghcr.io` nebo přístup k balíčku.
 - `no matching manifest for linux/arm/v7` – na Pi běží 32bitový systém (bod 1).

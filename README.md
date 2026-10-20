@@ -73,7 +73,8 @@ s `DEMO_MODE=True` nad jinou databází nenastartuje.
 
 Jeden `compose.yml` (projekt `pronajmy-prod`) pro autora i dalšího uživatele; návod pro dalšího
 uživatele je [INSTALL.md](INSTALL.md), instalační balíček vytvoří `scripts/make-bundle.sh <verze>`
-(`dist/pronajmy-install-<verze>.zip`: INSTALL.md, compose.yml, compose.demo.yml).
+(`dist/pronajmy-install-<verze>.zip`: INSTALL.md, CHANGELOG.md, compose.yml, compose.demo.yml).
+Přehled verzí: [CHANGELOG.md](CHANGELOG.md).
 
 | Služba | Co dělá |
 | --- | --- |
@@ -87,7 +88,7 @@ uživatele je [INSTALL.md](INSTALL.md), instalační balíček vytvoří `script
 V LXC je `.env` vývojový, proto provoz používá `.env.prod` a všechny příkazy
 `docker compose --env-file .env.prod -f compose.yml …`.
 
-1. `docker run --rm ghcr.io/jemop/pronajmy:<verze> init-env --url https://pronajmy.<tailnet>.ts.net > .env.prod`
+1. `docker run --rm --network host ghcr.io/jemop/pronajmy:<verze> init-env --url https://pronajmy.<tailnet>.ts.net --uid "$(id -u)" --gid "$(id -g)" > .env.prod`
    a v něm upravit: `PRONAJMY_ENV_FILE=.env.prod`, `PRONAJMY_BIND=127.0.0.1` a `PRONAJMY_PORT=8010`
    (port jen uvnitř LXC – init-env by pro https:// nastavil 443), `DJANGO_HTTPS=true` (init-env pro https:// nastaví sám), doplnit `TS_AUTHKEY=` (auth key
    z administrace Tailscale, jednorázový) a `TS_HOSTNAME=pronajmy`. **`BACKUP_PASSPHRASE` uložit

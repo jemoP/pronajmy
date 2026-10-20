@@ -62,7 +62,8 @@ COPY --chown=app:app . .
 COPY --from=css --chown=app:app /src/static/css/app.css static/css/app.css
 ENV PATH=/opt/venv/bin:$PATH
 RUN rm -rf apps/*/tests conftest.py docs assets scripts .github \
-        CLAUDE.md README.md Dockerfile compose*.yml .env.example pyproject.toml uv.lock \
+        CLAUDE.md README.md INSTALL.md CHANGELOG.md Dockerfile compose*.yml .env.example \
+        pyproject.toml uv.lock \
     && export DJANGO_SECRET_KEY=build DATABASE_URL=postgres://build:build@localhost/build \
     && python manage.py collectstatic --noinput -v0 \
     && python -m compileall -q -b -f apps config manage.py docker/selftest.py \
