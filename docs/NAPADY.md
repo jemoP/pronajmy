@@ -8,6 +8,33 @@ na později · `převedeno` – realizuje se přes ZM-xxx · `zamítnuto` – ne
 
 ---
 
+## Zjednodušení distribuce a aktualizací
+- **Stav:** nápad (2026-10-20, navazuje na ZM-010; předpoklad: Docker a Compose u uživatele jsou)
+- **Popis:** zkušenost z první instalace (1.0.0 na Raspberry Pi) – drhne účet a token na GitHubu,
+  přenos zipu, ručně opsaná adresa (Bad Request 400, řešeno v 1.0.1), ruční úprava `.env`
+  a záloha před aktualizací, demo a provoz ve dvou složkách. Možnosti:
+  1. **Instalátor v image:** `docker run --rm --network host -v "$PWD:/install"
+     ghcr.io/jemop/pronajmy:1 install` zapíše `compose.yml`, `.env` (adresa, UID, hesla),
+     `INSTALL.md` a `backups/` a vypíše další krok – odpadne zip i `init-env` a `mkdir`.
+  2. **Kanál hlavní verze:** tag image `1` vedle `1.0.1`, `compose.yml` s `:1` – aktualizace
+     = `docker compose pull && docker compose up -d` bez úpravy `.env`; verze 2 se nestáhne omylem.
+  3. **Automatická záloha před aktualizací:** `backup` při startu pozná novou verzi
+     (`PRONAJMY_VERSION` / verze image), zazálohuje a teprve pak pustí `web` k migracím
+     (`depends_on` na zdravou zálohu).
+  4. **Demo a provoz v jednom `compose.yml`** (demo jako profil) – jeden soubor; demo dál
+     ve vlastním projektu kvůli oddělení dat.
+  5. **Přístup bez účtu na GitHubu:** sdílený token robotického účtu jen pro čtení balíčků;
+     nevýhoda: sdílený přístupový údaj, při úniku zneplatnit a poslat všem nový.
+  6. **Veřejné image:** odpadne `docker login`; v rozporu s požadavkem „uživatel nesmí vidět
+     kód“ (`.pyc` jde dekompilovat) – nedoporučeno.
+  7. **Offline přenos** (`docker save` / `docker load`): bez registru a účtu; každá verze jako
+     soubor přes 100 MB – jen nouzově.
+  8. **Automatické aktualizace** (Watchtower): jen spolu s 2 a 3.
+- **Doporučení:** 1 + 2 + 3 (instalace = `docker login`, `install`, `up -d`; aktualizace =
+  `pull` + `up -d` se zálohou automaticky); 5 podle počtu uživatelů.
+- **Otevřené otázky:** které body realizovat; robotický účet ano / ne; má `install` umět
+  i demo (`install --demo`)?
+
 ## Oddělený výsledek nájmu a služeb
 - **Stav:** převedeno (2026-10-19, realizuje se jako [ZM-008](ZMENY.md))
 - **Popis:** příjmy a náklady rozdělit na dvě oddělená porovnání; celkový zisk se nemění.
