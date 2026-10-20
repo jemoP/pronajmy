@@ -226,13 +226,13 @@ rozsahu, kontakty se neexportují ani nezapisují do logů; čísla účtů v UI
 
 ## Technologie a architektura
 
-Stejný stack jako HomeFinance a Pokuty: Python 3.12, uv (`uv.lock`), Django 5.2 (LTS),
+Stejný stack jako HomeFinance: Python 3.12, uv (`uv.lock`), Django 5.2 (LTS),
 PostgreSQL 16, Django šablony + HTMX + Tailwind CSS (samostatný CLI binár, bez Node.js),
 Chart.js, pytest + pytest-django, ruff (ruff format), mypy (strict, django-stubs).
 
 | Vrstva | Volba |
 | --- | --- |
-| Vývoj | LXC 192.168.88.154, Docker; compose projekt `pronajmy` (`compose.dev.yml`: `web`, `db`), http://192.168.88.154:8002 (8000 Pokuty, 8001 HomeFinance) |
+| Vývoj | LXC 192.168.88.154, Docker; compose projekt `pronajmy` (`compose.dev.yml`: `web`, `db`), http://192.168.88.154:8002 (8001 HomeFinance) |
 | Provoz | `compose.yml`, projekt `pronajmy-prod`: `db`, `web` (gunicorn, WhiteNoise, vstupní skript s `migrate`, `collectstatic` a založením účtu), `backup`; profil `tailscale` (`https://pronajmy.<tailnet>.ts.net`, uživatelský režim, `tailscale serve`) pro provoz autora v LXC bez portu ven; bez profilu port `PRONAJMY_PORT` (výchozí 8080) v lokální síti s `DJANGO_HTTPS=false` (ZM-010) |
 | Distribuce | image `ghcr.io/jemop/pronajmy:<verze>` (`linux/amd64`, `linux/arm64`), privátní balíček GHCR, uživatel má jen čtení balíčku; build GitHub Actions po tagu `vX.Y.Z`, CSS ve fázi buildu, v image jen `.pyc`; Raspberry Pi s 64bitovým OS (ZM-010) |
 | Demo | `compose.demo.yml`, projekt `pronajmy-demo` (`db`, `web`), `DEMO_MODE=True`, `seed_demo [--reset]`, vlastní DB `pronajmy_demo` a volumes, port 8003, volitelná noční obnova (profil `reset`), uživatel demo bez správy a bez změny hesla, `compose.local.yml` pro build z místního kódu; bez `.env` – hodnoty přímo v `compose.demo.yml`, nic nechrání (ZM-010) |

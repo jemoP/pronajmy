@@ -25,7 +25,7 @@ services:
     environment:
       TZ: Europe/Prague
     ports:
-      # Port 8000 v LXC drží Pokuty, 8001 HomeFinance – Pronájmy na 8002.
+      # Port 8001 v LXC drží HomeFinance – Pronájmy na 8002.
       - "8002:8000"
     volumes:
       - .:/app

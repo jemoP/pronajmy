@@ -4,7 +4,7 @@ Webová aplikace pro evidenci pronajímaných bytů (byty, nájemníci, smlouvy,
 
 ## Prostředí
 - Vývoj běží v LXC 192.168.88.154 (Debian, Docker). Kód: /home/dev/pronajmy.
-- Vývoj: compose projekt pronajmy, kontejnery web a db (compose.dev.yml), http://192.168.88.154:8002 (port 8000 drží Pokuty, 8001 HomeFinance).
+- Vývoj: compose projekt pronajmy, kontejnery web a db (compose.dev.yml), http://192.168.88.154:8002 (8001 drží HomeFinance).
 - Provoz: compose.yml (projekt pronajmy-prod), přístup jen přes Tailscale (https://pronajmy.<tailnet>.ts.net).
 - Python, uv a tailwindcss jsou JEN v kontejneru web – vše spouštěj přes docker compose exec.
 
@@ -46,7 +46,7 @@ Python 3.12, uv, Django 5.2, PostgreSQL 16, Django šablony + HTMX + Tailwind CS
 - Změna schématu = vždy nová migrace přes makemigrations; datové migrace pro výchozí číselníky.
 - Data jsou naprosto oddělená od HomeFinance: žádná společná databáze, import, export ani API mezi aplikacemi. Peníze pronájmů se zapisují jen sem.
 - /home/dev/homefinance je jen zdroj kódu ke čtení (společný základ, archiv etapy 8: git show etapa-8-archiv:<soubor>); nic v něm neměň, necommituj a nespouštěj jeho kontejnery.
-- Neměnit nic mimo /home/dev/pronajmy a nesahat na jiné Docker kontejnery v LXC (HomeFinance, Pokuty).
+- Neměnit nic mimo /home/dev/pronajmy a nesahat na jiné Docker kontejnery v LXC (HomeFinance).
 - Složky media/ a backups/, soubory .env* a výpisy databáze se nikdy necommitují ani nečtou do logů.
 - Osobní údaje nájemníků jen v nezbytném rozsahu (bez rodného čísla a čísla dokladu); kontakty nikdy v exportech ani logách. Čísla účtů v UI maskovat.
 - Přílohy: typ podle obsahu souboru, náhodné jméno, stahování jen přihlášeným, žádná veřejná MEDIA_URL.
