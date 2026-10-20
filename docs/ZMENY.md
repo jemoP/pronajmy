@@ -26,6 +26,20 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ---
 
+## ZM-010 – Distribuce: demo a provozní instalace u jiného uživatele
+- **Datum:** 2026-10-20
+- **Stav:** schváleno (2026-10-20)
+- **Zadal:** Petr
+- **Důvod:** aplikaci má mít možnost nasadit i jiný člověk ve své lokální síti na vlastním Dockeru (Raspberry Pi) – nejdřív jako demo se smyšlenými daty, potom jako čistou provozní instalaci. Dosavadní řešení počítá jen s LXC autora (build ze zdrojů, jen amd64, provoz jen přes HTTPS / Tailscale).
+- **Popis:**
+  - **Distribuce:** hotový image `ghcr.io/jemop/pronajmy:<verze>` pro `linux/amd64` a `linux/arm64`, privátní balíček v GHCR; druhý uživatel dostane právo jen ke čtení balíčku (ne k repozitáři) a stahuje přes `docker login ghcr.io` s vlastním tokenem (`read:packages`). Image staví GitHub Actions po vytvoření tagu `vX.Y.Z`; Tailwind CSS se generuje ve fázi buildu na platformě buildu. V image je jen zkompilovaný Python (`.pyc`) bez zdrojových `.py` – brání běžnému čtení kódu, šablony a statické soubory zůstávají čitelné, úplnou ochranu kódu image neposkytuje. Licence se neřeší. Uživatel dostane jen `compose.yml` / `compose.demo.yml`, vzor `.env` a INSTALL.md; git ani zdrojové kódy nepotřebuje.
+  - **Provozní základ:** vstupní skript image (čeká na databázi, `migrate`, `collectstatic`, při prvním startu založí účet z `.env`); příkaz `init_env` vygeneruje `.env` s tajnými hodnotami (`docker run --rm <image> …`); `DATABASE_URL` se skládá z `POSTGRES_*`, povolené hostitele a CSRF z jedné adresy aplikace; port `PRONAJMY_PORT`. `DJANGO_HTTPS=false` (provoz v lokální síti po HTTP) vypne bezpečné cookies, HSTS a přesměrování na HTTPS; výchozí `true`.
+  - **Demo:** `compose.demo.yml` (projekt `pronajmy-demo`, jen `db` a `web`), `DEMO_MODE=True`: pruh „Demo – smyšlená data“, přihlašovací údaje demo/demo na přihlašovací stránce, prázdná databáze se při startu naplní příkazem `seed_demo` (smyšlená data relativní k dnešku, rozsah podle nápadu v NAPADY.md). Pojistky: `seed_demo` jen při `DEMO_MODE` a nad databází s „demo“ v názvu. Volitelná noční obnova `DEMO_RESET_DAILY` (výchozí vypnuto). Demo se na provoz nepřevádí – smaže se (`down -v`) a provoz se nainstaluje čistý.
+  - **Provoz (rozšířená etapa 5):** jeden `compose.yml` pro autora i ostatní: `db`, `web`, `backup` (šifrovaná záloha DB a příloh), `tailscale` jako volitelný profil (`--profile tailscale`, provoz autora); bez profilu port v lokální síti po HTTP. Postup aktualizace (záloha → `pull` → `up -d`), na prázdném Přehledu „První kroky“. INSTALL.md pro cizího uživatele (požadavky, demo, provoz, aktualizace, zálohy a obnova, odinstalace, odpovědnost za osobní údaje nájemníků).
+- **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Účel a rozsah, Funkční požadavky P16, P18, P19, Technologie a architektura, Etapy a akceptace).
+- **Dopad na data:** žádný (beze změny schématu); demo má vlastní databázi a volumes.
+- **Implementováno:** –
+
 ## ZM-009 – Hromadné mazání pohybů
 - **Datum:** 2026-10-19
 - **Stav:** hotovo

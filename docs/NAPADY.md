@@ -26,7 +26,8 @@ na později · `převedeno` – realizuje se přes ZM-xxx · `zamítnuto` – ne
   bytu, nebo jen Výkaz (doporučeno: vše).
 
 ## Demo aplikace se smyšlenými daty
-- **Stav:** pozastaveno (2026-10-18, návrh hotový, čeká na rozhodnutí otázek níže)
+- **Stav:** převedeno (2026-10-20, realizuje se jako [ZM-010](ZMENY.md) – demo pro jiného
+  uživatele v jeho lokální síti, přihlášení demo/demo, noční obnova volitelná)
 - **Popis:** samostatná demo instance ze stejného kódu, bez kopie skutečných dat (kopie +
   mazání by mohla vynést osobní údaje – přílohy, poznámky, sezení, admin log, výpisy DB).
   - `compose.demo.yml`, projekt `pronajmy-demo`: vlastní DB a volume příloh, `.env.demo` mimo git,

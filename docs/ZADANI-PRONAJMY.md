@@ -1,6 +1,6 @@
 # Pronájmy – zadání a založení projektu
 
-Verze: 19. 10. 2026, ZM-009 (historie změn: [ZMENY.md](ZMENY.md))
+Verze: 20. 10. 2026, ZM-010 (historie změn: [ZMENY.md](ZMENY.md))
 
 ## Účel a rozsah
 
@@ -23,7 +23,9 @@ V rozsahu první verze:
 - opravy a pravidelné revize s upozorněním,
 - přílohy (skeny smluv, protokoly, fotky),
 - upozornění, výkaz po bytech, podklad pro daňové přiznání, export CSV / XLSX,
-- provoz přes Tailscale, šifrované zálohy databáze i příloh.
+- provoz přes Tailscale nebo v lokální síti po HTTP, šifrované zálohy databáze i příloh,
+- distribuce hotového image pro jiného uživatele: demo se smyšlenými daty a čistá provozní
+  instalace na jeho Dockeru, i na Raspberry Pi (ZM-010).
 
 Mimo rozsah první verze: import historických dat (dřívější smlouvy a pohyby se zadají ručně),
 vyúčtování služeb (nedoplatek / přeplatek se zadá ručním předpisem), šablony smluv, odesílání
@@ -213,8 +215,10 @@ ověření vodoměrů 60.
 | P13 | Přehledy | Podklad pro daňové přiznání (§ 9): příjmy, skutečné výdaje proti paušálu 30 %, nejvýš 600 000 Kč ročně; jen účely s příznakem „počítat do daní“ (bez záloh, vyúčtování a nákladu Služby); upozornění, že skutečné výdaje nezahrnují odpisy ani úroky | Má |
 | P14 | Export | Export pohybů a výkazu do CSV (český Excel: UTF-8 s BOM, středník, desetinná čárka) a XLSX; bez kontaktů nájemníků a čísel účtů | Má |
 | P15 | Zálohy | Denní šifrovaná záloha databáze a příloh, kontrola a obnova | Musí |
-| P16 | Přístup | Přihlášení heslem (jeden účet), provoz jen přes Tailscale | Musí |
+| P16 | Přístup | Přihlášení heslem (jeden účet), provoz přes Tailscale nebo v lokální síti po HTTP (ZM-010) | Musí |
 | P17 | Platby | Předpisy plateb dodavatelům s platností v čase a rozpisem na účely a byty; splátky, zaplacení jednotlivě i dávkově (volitelně automaticky), výhled, upozornění (ZM-006) | Má |
+| P18 | Distribuce | Hotový image v GHCR (amd64, arm64) bez zdrojových `.py`, `init_env`, první spuštění bez ručních příkazů, INSTALL.md, verze a postup aktualizace (ZM-010) | Musí |
+| P19 | Demo | Demo instance se smyšlenými daty (`seed_demo`, `DEMO_MODE`, pruh a ukázkové přihlášení), oddělená od provozu (ZM-010) | Musí |
 
 Nefunkční požadavky: UI v češtině, částky „1 234,50 Kč“, data „15. 10. 2026“; responzivní na
 mobilu; vše lokálně, žádné cloudové služby a CDN; osobní údaje nájemníků jen v nezbytném
@@ -229,7 +233,9 @@ Chart.js, pytest + pytest-django, ruff (ruff format), mypy (strict, django-stubs
 | Vrstva | Volba |
 | --- | --- |
 | Vývoj | LXC 192.168.88.154, Docker; compose projekt `pronajmy` (`compose.dev.yml`: `web`, `db`), http://192.168.88.154:8002 (8000 Pokuty, 8001 HomeFinance) |
-| Provoz | `compose.yml`, projekt `pronajmy-prod` ve stejném LXC: `db`, `web` (gunicorn, WhiteNoise), `backup`, `tailscale` (`https://pronajmy.<tailnet>.ts.net`, uživatelský režim, `tailscale serve`); žádný port z LXC ven |
+| Provoz | `compose.yml`, projekt `pronajmy-prod`: `db`, `web` (gunicorn, WhiteNoise, vstupní skript s `migrate`, `collectstatic` a založením účtu), `backup`; profil `tailscale` (`https://pronajmy.<tailnet>.ts.net`, uživatelský režim, `tailscale serve`) pro provoz autora v LXC bez portu ven; bez profilu port `PRONAJMY_PORT` v lokální síti s `DJANGO_HTTPS=false` (ZM-010) |
+| Distribuce | image `ghcr.io/jemop/pronajmy:<verze>` (`linux/amd64`, `linux/arm64`), privátní balíček GHCR, uživatel má jen čtení balíčku; build GitHub Actions po tagu `vX.Y.Z`, CSS ve fázi buildu, v image jen `.pyc`; Raspberry Pi s 64bitovým OS (ZM-010) |
+| Demo | `compose.demo.yml`, projekt `pronajmy-demo` (`db`, `web`), `DEMO_MODE=True`, `seed_demo`, vlastní DB a volumes (ZM-010) |
 | Přílohy | vývoj `media/` v projektu (v .gitignore a .dockerignore), provoz volume `media_data` |
 | Zálohy | služba `backup`: denně `pg_dump` + tar příloh, AES-256 (`BACKUP_PASSPHRASE`), 30 dní; `restore.sh check / restore / dump / media-check / media-restore / media-dump` |
 | Tajné údaje | `.env` / `.env.prod` (mimo git), vzory `.env.example` / `.env.prod.example` |
@@ -240,7 +246,8 @@ Struktura repozitáře:
 pronajmy/                  # v LXC: /home/dev/pronajmy
 ├── CLAUDE.md
 ├── docs/ZADANI-PRONAJMY.md, docs/ZMENY.md, docs/NAPADY.md
-├── Dockerfile, compose.dev.yml, compose.yml, README.md
+├── Dockerfile, compose.dev.yml, compose.yml, compose.demo.yml, README.md, INSTALL.md
+├── .github/workflows/     # build a zveřejnění image v GHCR (ZM-010)
 ├── docker/                # backup.sh, restore.sh, backup.Dockerfile, tailscale/serve.json
 ├── scripts/               # dev-from-prod.sh
 ├── manage.py, pyproject.toml, uv.lock
@@ -266,7 +273,9 @@ v kontejneru) → commit → kontrola uživatelem → merge.
 | 2 Smlouvy a platby | P04–P07 (převod kódu etapy 8 na `entry`) | Smlouva od 1. 1. 2026 (nájem 15 000 Kč + zálohy 3 000 Kč, splatnost 5. dne) s dodatkem od 1. 7. 2026 (nájem 16 000 Kč) a platbami 18 000 Kč za leden–září ukáže k 16. 10. 2026 dluh 22 000 Kč po splatnosti; platby se rozdělí na nájemné 138 000 Kč a zálohy 24 000 Kč |
 | 3 Údržba a přílohy | P08–P10, přílohy | Revize kotle provedená 1. 11. 2025 s intervalem 12 měsíců je k 16. 10. 2026 v upozorněních „za 16 dní“; oprava zaplacená z účtu sníží výsledek bytu; příloha s neplatným obsahem se odmítne |
 | 4 Přehledy | P11–P14 | Výkaz sedí s pohyby (jistota a výběry se nepočítají); paušál respektuje strop; export neobsahuje kontakty |
-| 5 Provoz | P15, P16: compose.yml, Tailscale, zálohy, README | Aplikace je dostupná přes Tailscale; záloha a obnova databáze i příloh ověřena |
+| 5 Image a distribuce | P18: provozní image, vstupní skript, `init_env`, `DJANGO_HTTPS`, build amd64 + arm64 v GitHub Actions, GHCR (ZM-010) | Image z GHCR se po `docker login` stáhne pro amd64 i arm64; neobsahuje `.py` zdroje, `media/`, `backups/` ani `.env*`; na prázdné DB nastartuje sám a přihlášení po HTTP v lokální síti funguje |
+| 6 Demo | P19: `seed_demo`, `DEMO_MODE`, `compose.demo.yml`, INSTALL.md – část demo (ZM-010) | Demo se spustí třemi kroky podle INSTALL.md v LXC jako samostatný projekt na volném portu; přehled, výkaz a upozornění mají data; `seed_demo` mimo demo odmítne běžet |
+| 7 Provoz | P15, P16: compose.yml s profilem `tailscale`, zálohy, aktualizace, „První kroky“, README a INSTALL.md – část provoz (ZM-010) | Čistá instalace podle INSTALL.md nastartuje s výchozími číselníky; aplikace autora je dostupná přes Tailscale; záloha a obnova databáze i příloh ověřena, i obnova na jiném stroji |
 
 ## Založení projektu
 
