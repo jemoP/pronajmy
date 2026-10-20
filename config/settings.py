@@ -5,6 +5,7 @@ from pathlib import Path
 
 import django_stubs_ext
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 from config.envconfig import app_url_hosts, database_url, merge_unique
 
@@ -77,6 +78,12 @@ TEMPLATES = [
 ]
 
 DATABASES = {"default": env.db_url_config(database_url(os.environ))}
+
+# Demo se smyšlenými daty (ZM-010): pruh na stránkách, ukázkové přihlášení, příkaz seed_demo.
+# Pojistka: demo nikdy nepoběží nad provozní databází.
+DEMO_MODE = env.bool("DEMO_MODE", default=False)
+if DEMO_MODE and "demo" not in str(DATABASES["default"]["NAME"]).lower():
+    raise ImproperlyConfigured("DEMO_MODE=True smí běžet jen nad databází s „demo“ v názvu.")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_PASSWORD_VALIDATORS = [

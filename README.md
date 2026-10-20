@@ -50,6 +50,25 @@ Zveřejnění: tag `vX.Y.Z` a push → GitHub Actions spustí testy, zkontroluje
 s 64bitovým systémem). Balíček je privátní; přístup ke čtení se přidává v nastavení balíčku
 na GitHubu (Package settings → Manage access).
 
+## Demo (ZM-010)
+
+Demo se smyšlenými daty je samostatný compose projekt `pronajmy-demo` (`compose.demo.yml`:
+`db`, `web`, volitelně `reset`) s vlastní databází `pronajmy_demo` a přílohami; `.env` nepotřebuje.
+Při prvním startu se prázdná databáze naplní příkazem `seed_demo` (3 roky historie relativně
+k dnešku), přihlášení demo / demo, na každé stránce pruh „Demo – smyšlená data“, změna hesla
+je vypnutá.
+
+```sh
+docker compose -f compose.demo.yml -f compose.local.yml up -d --build    # z místního kódu, :8003
+docker compose -f compose.demo.yml up -d                                 # z GHCR (po zveřejnění)
+docker compose -f compose.demo.yml exec web python manage.pyc seed_demo --reset   # obnova dat
+docker compose -f compose.demo.yml --profile reset up -d                 # obnova každý den ve 03:00
+docker compose -f compose.demo.yml down -v                               # konec dema i s daty
+```
+
+Pojistky: `seed_demo` běží jen při `DEMO_MODE=True` nad databází s „demo“ v názvu a aplikace
+s `DEMO_MODE=True` nad jinou databází nenastartuje.
+
 ## Provoz
 
 Provoz přes Tailscale a šifrované zálohy databáze i příloh přibudou v etapě 5.

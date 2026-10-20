@@ -5,5 +5,5 @@ from django.http import HttpRequest
 
 
 def app_version(request: HttpRequest) -> dict[str, Any]:
-    """Verze aplikace do patičky (ZM-010)."""
-    return {"app_version": settings.APP_VERSION}
+    """Verze aplikace do patičky a příznak dema pro pruh a přihlášení (ZM-010)."""
+    return {"app_version": settings.APP_VERSION, "demo_mode": settings.DEMO_MODE}
