@@ -2,7 +2,7 @@ from django.test import Client
 
 
 def test_health_is_public(client: Client) -> None:
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json() == {"status": "ok", "version": "vývoj"}
 
 
 def test_pages_require_login(client: Client, db: None) -> None:

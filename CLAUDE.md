@@ -22,6 +22,9 @@ Python 3.12, uv, Django 5.2, PostgreSQL 16, Django šablony + HTMX + Tailwind CS
 - docker compose -f compose.dev.yml exec web uv run python manage.py makemigrations
 - docker compose -f compose.dev.yml exec web uv run python manage.py createsuperuser
 - Nová závislost: exec web uv add <balík>, pak rebuild.
+- docker build --target prod --build-arg APP_VERSION=<verze> -t pronajmy:local .   # provozní image (jen .pyc)
+- scripts/check-image.sh pronajmy:local                                    # obsah image vč. vrstev (žádné .py, data, .env)
+- Zveřejnění image do GHCR: tag vX.Y.Z + push (GitHub Actions, amd64 + arm64) – jen na pokyn.
 
 ## Provoz (compose.yml, projekt pronajmy-prod)
 - Postup a obnova ze zálohy: README.md. Tajné údaje v .env.prod (není v gitu).

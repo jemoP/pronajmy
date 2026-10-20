@@ -1,9 +1,12 @@
 """Nastavení Djanga. Tajné a provozní hodnoty jen z prostředí (.env)."""
 
+import os
 from pathlib import Path
 
 import django_stubs_ext
 import environ
+
+from config.envconfig import app_url_hosts, database_url, merge_unique
 
 # Generika modelů a adminu (ModelAdmin[Model]) za běhu – kvůli typové kontrole.
 django_stubs_ext.monkeypatch()
@@ -18,8 +21,13 @@ env = environ.Env(
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
-ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
-CSRF_TRUSTED_ORIGINS = env("DJANGO_CSRF_TRUSTED_ORIGINS")
+# Adresa aplikace (např. http://192.168.1.50:8080) doplní povoleného hostitele i původ pro CSRF;
+# localhost kvůli kontrole stavu kontejneru (ZM-010).
+_app_hosts, _app_origins = app_url_hosts(env.str("PRONAJMY_URL", default=""))
+ALLOWED_HOSTS = merge_unique(env("DJANGO_ALLOWED_HOSTS"), _app_hosts, ["localhost"])
+CSRF_TRUSTED_ORIGINS = merge_unique(env("DJANGO_CSRF_TRUSTED_ORIGINS"), _app_origins)
+# Verze aplikace z buildu image (patička, /health).
+APP_VERSION = env.str("APP_VERSION", default="vývoj")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -59,6 +67,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.app_version",
                 "apps.money.context_processors.choices",
                 "apps.rentals.context_processors.alerts",
             ],
@@ -67,7 +76,7 @@ TEMPLATES = [
     }
 ]
 
-DATABASES = {"default": env.db("DATABASE_URL")}
+DATABASES = {"default": env.db_url_config(database_url(os.environ))}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -102,11 +111,14 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # jeden uživatel: přihlášení na 30 
 if not DEBUG:
     # Statické soubory v provozu servíruje WhiteNoise (ve vývoji runserver).
     MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+    # DJANGO_HTTPS=false: provoz v lokální síti po HTTP – cookies bez příznaku Secure,
+    # bez HSTS a bez přesměrování, jinak by se přihlášení neudrželo (ZM-010).
+    HTTPS = env.bool("DJANGO_HTTPS", default=True)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
+    SECURE_SSL_REDIRECT = HTTPS and env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
+    SESSION_COOKIE_SECURE = HTTPS
+    CSRF_COOKIE_SECURE = HTTPS
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30 if HTTPS else 0
     SECURE_CONTENT_TYPE_NOSNIFF = True
     # Vědomě vypnuté kontroly (provoz za Tailscale): HTTPS ukončuje `tailscale serve`
     # a jiná cesta do aplikace nevede (W008); doména ts.net nepatří nám, takže HSTS

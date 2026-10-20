@@ -26,6 +26,30 @@ docker compose -f compose.dev.yml exec web uv run pytest
 
 Bez přihlášení je dostupná jen přihlašovací stránka a `/health`.
 
+## Provozní image (ZM-010)
+
+Jeden `Dockerfile`: `target: dev` pro vývoj, `target: prod` pro provoz a distribuci. Provozní image
+obsahuje jen zkompilovaný Python (`.pyc`), sebrané statické soubory a šablony; testy, dokumentace
+a zdrojové `.py` v něm nejsou ani v nižších vrstvách.
+
+```sh
+docker build --target prod --build-arg APP_VERSION=0.5.0 -t pronajmy:local .
+scripts/check-image.sh pronajmy:local       # obsah image a všech vrstev
+docker run --rm pronajmy:local init-env --url http://192.168.1.50:8080 > .env
+```
+
+Vstupní skript image: `web` (výchozí – čeká na databázi, `migrate`, při prvním startu založí účet
+z `PRONAJMY_ADMIN_USER` / `PRONAJMY_ADMIN_PASSWORD`, gunicorn), `init-env --url …` (vypíše `.env`
+s novými tajnými hodnotami), `manage <příkaz>`.
+
+Nastavení navíc: `PRONAJMY_URL` (doplní povoleného hostitele a CSRF), `DJANGO_HTTPS=false`
+(provoz v lokální síti po HTTP), `DATABASE_URL` je volitelná – jinak se skládá z `POSTGRES_*`.
+
+Zveřejnění: tag `vX.Y.Z` a push → GitHub Actions spustí testy, zkontroluje obsah image a nahraje
+`ghcr.io/jemop/pronajmy:X.Y.Z` a `latest` pro `linux/amd64` a `linux/arm64` (Raspberry Pi
+s 64bitovým systémem). Balíček je privátní; přístup ke čtení se přidává v nastavení balíčku
+na GitHubu (Package settings → Manage access).
+
 ## Provoz
 
 Provoz přes Tailscale a šifrované zálohy databáze i příloh přibudou v etapě 5.
