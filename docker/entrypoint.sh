@@ -22,6 +22,9 @@ case "${1:-web}" in
       python manage.pyc seed_demo
     else
       python manage.pyc ensure_admin
+      if [ -n "${PRONAJMY_URL:-}" ]; then
+        echo "Aplikace je dostupná na ${PRONAJMY_URL%/} (jiná adresa v prohlížeči skončí chybou Bad Request 400 – viz PRONAJMY_URL v .env)."
+      fi
     fi
     exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 \
       --workers "${GUNICORN_WORKERS:-2}" --timeout 120 --access-logfile -

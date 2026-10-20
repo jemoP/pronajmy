@@ -1,5 +1,5 @@
 #!/bin/sh
-# Instalační balíček pro dalšího uživatele (ZM-010): INSTALL.md, compose.yml, compose.demo.yml
+# Instalační balíček pro dalšího uživatele (ZM-010): INSTALL.md, CHANGELOG.md, compose.yml, compose.demo.yml
 # s výchozí verzí image. Použití: scripts/make-bundle.sh <verze>  →  dist/pronajmy-install-<verze>.zip
 set -eu
 cd "$(dirname "$0")/.."
@@ -15,6 +15,7 @@ rm -rf "$out" "dist/$name.zip"
 mkdir -p "$out"
 sed "s/@VERZE@/$version/g" INSTALL.md > "$out/INSTALL.md"
 cp compose.yml "$out/compose.yml"
+cp CHANGELOG.md "$out/CHANGELOG.md"
 sed "s/PRONAJMY_VERSION:-latest/PRONAJMY_VERSION:-$version/g" compose.demo.yml > "$out/compose.demo.yml"
 (cd dist && python3 -m zipfile -c "$name.zip" "$name")
 rm -rf "$out"

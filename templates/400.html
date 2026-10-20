@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neplatný požadavek · Pronájmy</title>
+  <style>
+    body { margin: 0; padding: 2rem 1rem; font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+    main { max-width: 40rem; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: .75rem; padding: 1.5rem; }
+    h1 { margin-top: 0; font-size: 1.4rem; }
+    code { background: #f1f5f9; padding: .1rem .3rem; border-radius: .25rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>⚠ Neplatný požadavek (400)</h1>
+    <p>Aplikace požadavek odmítla. Nejčastější příčina: <strong>adresa v prohlížeči neodpovídá
+      adrese, kterou má aplikace povolenou.</strong></p>
+    <p>Pro správce: adresa (IP a port) musí odpovídat <code>PRONAJMY_URL</code> v souboru
+      <code>.env</code>. Po opravě spusť <code>docker compose up -d --force-recreate web</code>.
+      Další adresu (např. jméno počítače) jde povolit řádkem
+      <code>DJANGO_ALLOWED_HOSTS=…</code>. Správnou adresu vypíše
+      <code>docker compose logs web | grep dostupná</code>.</p>
+  </main>
+</body>
+</html>
