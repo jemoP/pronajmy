@@ -9,3 +9,4 @@ media/
 backups/
 staticfiles/
 static/css/app.css
+dist/

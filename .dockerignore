@@ -13,3 +13,4 @@ backups/
 .claude/
 .github/
 docs/
+dist/

@@ -69,6 +69,71 @@ docker compose -f compose.demo.yml down -v                               # konec
 Pojistky: `seed_demo` běží jen při `DEMO_MODE=True` nad databází s „demo“ v názvu a aplikace
 s `DEMO_MODE=True` nad jinou databází nenastartuje.
 
-## Provoz
+## Provoz (P15, P16, ZM-010)
 
-Provoz přes Tailscale a šifrované zálohy databáze i příloh přibudou v etapě 5.
+Jeden `compose.yml` (projekt `pronajmy-prod`) pro autora i dalšího uživatele; návod pro dalšího
+uživatele je [INSTALL.md](INSTALL.md), instalační balíček vytvoří `scripts/make-bundle.sh <verze>`
+(`dist/pronajmy-install-<verze>.zip`: INSTALL.md, compose.yml, compose.demo.yml).
+
+| Služba | Co dělá |
+| --- | --- |
+| `db` | PostgreSQL 16, volume `db_data` |
+| `web` | `ghcr.io/jemop/pronajmy:${PRONAJMY_VERSION}`, přílohy ve volume `media_data`, port `${PRONAJMY_BIND}:${PRONAJMY_PORT}` |
+| `backup` | `ghcr.io/jemop/pronajmy-backup`: denně v `BACKUP_TIME` šifrovaná záloha DB a příloh do `backups/` |
+| `tailscale` | jen s profilem `tailscale`: `https://pronajmy.<tailnet>.ts.net`, uživatelský režim, `tailscale serve` |
+
+### Provoz autora v LXC (Tailscale)
+
+V LXC je `.env` vývojový, proto provoz používá `.env.prod` a všechny příkazy
+`docker compose --env-file .env.prod -f compose.yml …`.
+
+1. `docker run --rm ghcr.io/jemop/pronajmy:<verze> init-env --url https://pronajmy.<tailnet>.ts.net > .env.prod`
+   a v něm upravit: `PRONAJMY_ENV_FILE=.env.prod`, `PRONAJMY_BIND=127.0.0.1` a `PRONAJMY_PORT=8010`
+   (port jen uvnitř LXC – init-env by pro https:// nastavil 443), `DJANGO_HTTPS=true` (init-env pro https:// nastaví sám), doplnit `TS_AUTHKEY=` (auth key
+   z administrace Tailscale, jednorázový) a `TS_HOSTNAME=pronajmy`. **`BACKUP_PASSPHRASE` uložit
+   i mimo server.**
+2. `docker login ghcr.io` (token `read:packages`), `mkdir backups`
+3. `docker compose --env-file .env.prod -f compose.yml --profile tailscale up -d`
+4. V administraci Tailscale u zařízení `pronajmy` vypnout **Disable key expiry**.
+
+Bez GHCR (build z místního kódu): navíc `-f compose.prod-local.yml … up -d --build`.
+
+### Aktualizace
+
+```sh
+docker compose --env-file .env.prod -f compose.yml exec backup /bin/sh /backup.sh now
+# v .env.prod změnit PRONAJMY_VERSION
+docker compose --env-file .env.prod -f compose.yml --profile tailscale pull
+docker compose --env-file .env.prod -f compose.yml --profile tailscale up -d   # migrace při startu
+```
+
+### Zálohy a obnova
+
+```sh
+P="docker compose --env-file .env.prod -f compose.yml"
+$P exec backup /bin/sh /backup.sh now                                       # ruční záloha DB + příloh
+$P exec backup /bin/sh /restore.sh check /backups/db_<čas>.dump.enc          # obnova do dočasné DB, počty
+$P exec backup /bin/sh /restore.sh media-check /backups/media_<čas>.tar.enc  # soubory vs. přílohy v DB
+$P stop web                                                                  # obnova provozu:
+$P exec backup /bin/sh /restore.sh restore /backups/db_<čas>.dump.enc
+$P exec backup /bin/sh /restore.sh media-restore /backups/media_<čas>.tar.enc
+$P start web
+scripts/dev-from-prod.sh            # vývojová DB a media/ z poslední provozní zálohy
+```
+
+Zálohy leží na stejném disku jako data – zahrň LXC do záloh Proxmoxu nebo `backups/` kopíruj
+jinam (NAS).
+
+### Přístup dalšího uživatele k image (GitHub)
+
+Image jsou privátní balíčky `pronajmy` a `pronajmy-backup` (vzniknou prvním během workflow).
+U každého v GitHubu: Package settings → **Manage Actions access**: repozitář `pronajmy` s rolí
+Write (aby workflow mohl dál nahrávat) → vypnout **Inherit access from source repository** →
+**Manage access** → Invite: uživatel s rolí **Read**. Repozitář ani kód tím neuvidí.
+
+### Vydání verze
+
+1. Testy zelené, `main` odeslaný, tag `vX.Y.Z` → push tagu → GitHub Actions (testy, kontrola
+   obsahu image, build amd64 + arm64, nahrání do GHCR).
+2. `scripts/make-bundle.sh X.Y.Z` a zip poslat dalšímu uživateli (stačí při první instalaci
+   nebo změně compose souborů; jinak jen číslo nové verze).

@@ -1,0 +1,15 @@
+# Jen pro vývojáře: provoz z místního kódu místo image z GHCR (ZM-010).
+#   docker compose --env-file <soubor> -f compose.yml -f compose.prod-local.yml up -d --build
+services:
+  web:
+    image: pronajmy:local
+    build:
+      context: .
+      target: prod
+      args:
+        APP_VERSION: místní
+  backup:
+    image: pronajmy-backup:local
+    build:
+      context: .
+      dockerfile: docker/backup.Dockerfile
