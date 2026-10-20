@@ -24,6 +24,8 @@ Python 3.12, uv, Django 5.2, PostgreSQL 16, Django šablony + HTMX + Tailwind CS
 - Nová závislost: exec web uv add <balík>, pak rebuild.
 - docker build --target prod --build-arg APP_VERSION=<verze> -t pronajmy:local .   # provozní image (jen .pyc)
 - scripts/check-image.sh pronajmy:local                                    # obsah image vč. vrstev (žádné .py, data, .env)
+- docker compose -f compose.demo.yml -f compose.local.yml up -d --build     # demo z místního kódu na :8003 (projekt pronajmy-demo)
+- docker compose -f compose.demo.yml exec web python manage.pyc seed_demo --reset   # obnova demo dat
 - Zveřejnění image do GHCR: tag vX.Y.Z + push (GitHub Actions, amd64 + arm64) – jen na pokyn.
 
 ## Provoz (compose.yml, projekt pronajmy-prod)

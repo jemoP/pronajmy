@@ -3,6 +3,7 @@
 {% block content %}
 <div class="mx-auto max-w-sm card">
   <h1 class="mb-4 text-xl font-bold">Přihlášení</h1>
+  {% if demo_mode %}<p class="notice-warning mb-4">⚠ Ukázkové přihlášení: jméno <strong>demo</strong>, heslo <strong>demo</strong>.</p>{% endif %}
   {% if form.errors %}<p class="notice-error mb-4">Nesprávné jméno nebo heslo.</p>{% endif %}
   <form method="post" action="{% url 'login' %}" class="space-y-4">
     {% csrf_token %}

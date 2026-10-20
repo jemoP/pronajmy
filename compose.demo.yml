@@ -1,0 +1,62 @@
+# Demo Pronájmů se smyšlenými daty (ZM-010). Nepotřebuje .env – vše je tady.
+#   docker compose -f compose.demo.yml up -d                     # http://<IP počítače>:8003, demo / demo
+#   docker compose -f compose.demo.yml --profile reset up -d     # navíc obnova dat každý den ve 03:00
+#   docker compose -f compose.demo.yml down -v                   # konec dema včetně dat
+# Port a verzi jde změnit proměnnými PRONAJMY_DEMO_PORT a PRONAJMY_VERSION.
+name: pronajmy-demo
+
+x-demo-env: &demo-env
+  # Jen pro demo – nic skutečného nechrání. Pro provoz vždy vlastní .env (init-env).
+  DJANGO_SECRET_KEY: demo-only-not-secret-3b8f0c5e7a1d4e9b
+  DJANGO_DEBUG: "False"
+  DJANGO_HTTPS: "false"
+  DJANGO_ALLOWED_HOSTS: "*"
+  DEMO_MODE: "True"
+  POSTGRES_DB: pronajmy_demo
+  POSTGRES_USER: pronajmy_demo
+  POSTGRES_PASSWORD: pronajmy_demo
+  TZ: Europe/Prague
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment: *demo-env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pronajmy_demo -d pronajmy_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/jemop/pronajmy:${PRONAJMY_VERSION:-latest}
+    environment: *demo-env
+    ports:
+      - "${PRONAJMY_DEMO_PORT:-8003}:8000"
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Volitelná noční obnova dat (profil reset).
+  reset:
+    image: ghcr.io/jemop/pronajmy:${PRONAJMY_VERSION:-latest}
+    profiles: ["reset"]
+    command: ["demo-reset-loop"]
+    environment: *demo-env
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  media_data:
