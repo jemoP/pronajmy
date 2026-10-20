@@ -233,9 +233,9 @@ Chart.js, pytest + pytest-django, ruff (ruff format), mypy (strict, django-stubs
 | Vrstva | Volba |
 | --- | --- |
 | Vývoj | LXC 192.168.88.154, Docker; compose projekt `pronajmy` (`compose.dev.yml`: `web`, `db`), http://192.168.88.154:8002 (8000 Pokuty, 8001 HomeFinance) |
-| Provoz | `compose.yml`, projekt `pronajmy-prod`: `db`, `web` (gunicorn, WhiteNoise, vstupní skript s `migrate`, `collectstatic` a založením účtu), `backup`; profil `tailscale` (`https://pronajmy.<tailnet>.ts.net`, uživatelský režim, `tailscale serve`) pro provoz autora v LXC bez portu ven; bez profilu port `PRONAJMY_PORT` v lokální síti s `DJANGO_HTTPS=false` (ZM-010) |
+| Provoz | `compose.yml`, projekt `pronajmy-prod`: `db`, `web` (gunicorn, WhiteNoise, vstupní skript s `migrate`, `collectstatic` a založením účtu), `backup`; profil `tailscale` (`https://pronajmy.<tailnet>.ts.net`, uživatelský režim, `tailscale serve`) pro provoz autora v LXC bez portu ven; bez profilu port `PRONAJMY_PORT` (výchozí 8080) v lokální síti s `DJANGO_HTTPS=false` (ZM-010) |
 | Distribuce | image `ghcr.io/jemop/pronajmy:<verze>` (`linux/amd64`, `linux/arm64`), privátní balíček GHCR, uživatel má jen čtení balíčku; build GitHub Actions po tagu `vX.Y.Z`, CSS ve fázi buildu, v image jen `.pyc`; Raspberry Pi s 64bitovým OS (ZM-010) |
-| Demo | `compose.demo.yml`, projekt `pronajmy-demo` (`db`, `web`), `DEMO_MODE=True`, `seed_demo`, vlastní DB a volumes (ZM-010) |
+| Demo | `compose.demo.yml`, projekt `pronajmy-demo` (`db`, `web`), `DEMO_MODE=True`, `seed_demo`, vlastní DB a volumes, port 8003; bez `.env` – hodnoty přímo v `compose.demo.yml`, nic nechrání (ZM-010) |
 | Přílohy | vývoj `media/` v projektu (v .gitignore a .dockerignore), provoz volume `media_data` |
 | Zálohy | služba `backup`: denně `pg_dump` + tar příloh, AES-256 (`BACKUP_PASSPHRASE`), 30 dní; `restore.sh check / restore / dump / media-check / media-restore / media-dump` |
 | Tajné údaje | `.env` / `.env.prod` (mimo git), vzory `.env.example` / `.env.prod.example` |
@@ -248,8 +248,8 @@ pronajmy/                  # v LXC: /home/dev/pronajmy
 ├── docs/ZADANI-PRONAJMY.md, docs/ZMENY.md, docs/NAPADY.md
 ├── Dockerfile, compose.dev.yml, compose.yml, compose.demo.yml, README.md, INSTALL.md
 ├── .github/workflows/     # build a zveřejnění image v GHCR (ZM-010)
-├── docker/                # backup.sh, restore.sh, backup.Dockerfile, tailscale/serve.json
-├── scripts/               # dev-from-prod.sh
+├── docker/                # entrypoint.sh, selftest.py, backup.sh, restore.sh, backup.Dockerfile, tailscale/serve.json
+├── scripts/               # check-image.sh, dev-from-prod.sh
 ├── manage.py, pyproject.toml, uv.lock
 ├── config/                # nastavení Django, urls
 ├── apps/

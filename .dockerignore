@@ -10,3 +10,6 @@ static/css/app.css
 staticfiles/
 media/
 backups/
+.claude/
+.github/
+docs/

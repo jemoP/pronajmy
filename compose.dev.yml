@@ -14,7 +14,9 @@ services:
     restart: unless-stopped
 
   web:
-    build: .
+    build:
+      context: .
+      target: dev
     # Vývoj: Tailwind sleduje šablony, runserver načítá změny v Pythonu.
     command: >
       sh -c "tailwindcss -i assets/css/input.css -o static/css/app.css --watch=always &
