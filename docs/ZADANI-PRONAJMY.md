@@ -237,8 +237,9 @@ Chart.js, pytest + pytest-django, ruff (ruff format), mypy (strict, django-stubs
 | Distribuce | image `ghcr.io/jemop/pronajmy:<verze>` (`linux/amd64`, `linux/arm64`), privátní balíček GHCR, uživatel má jen čtení balíčku; build GitHub Actions po tagu `vX.Y.Z`, CSS ve fázi buildu, v image jen `.pyc`; Raspberry Pi s 64bitovým OS (ZM-010) |
 | Demo | `compose.demo.yml`, projekt `pronajmy-demo` (`db`, `web`), `DEMO_MODE=True`, `seed_demo [--reset]`, vlastní DB `pronajmy_demo` a volumes, port 8003, volitelná noční obnova (profil `reset`), uživatel demo bez správy a bez změny hesla, `compose.local.yml` pro build z místního kódu; bez `.env` – hodnoty přímo v `compose.demo.yml`, nic nechrání (ZM-010) |
 | Přílohy | vývoj `media/` v projektu (v .gitignore a .dockerignore), provoz volume `media_data` |
-| Zálohy | služba `backup`: denně `pg_dump` + tar příloh, AES-256 (`BACKUP_PASSPHRASE`), 30 dní; `restore.sh check / restore / dump / media-check / media-restore / media-dump` |
-| Tajné údaje | `.env` / `.env.prod` (mimo git), vzory `.env.example` / `.env.prod.example` |
+| Zálohy | služba `backup` (image `ghcr.io/jemop/pronajmy-backup`, `docker/backup.Dockerfile`): denně `pg_dump` + tar příloh, AES-256 (`BACKUP_PASSPHRASE`), 30 dní, vlastník souborů `BACKUP_UID`; `restore.sh check / restore / dump / media-check / media-restore / media-dump` |
+| Tajné údaje | `.env` (vývoj, vzor `.env.example`), provoz `.env` / u autora `.env.prod` (mimo git) vygenerovaný `init-env` |
+| Instalace | INSTALL.md pro dalšího uživatele, `scripts/make-bundle.sh <verze>` → `dist/pronajmy-install-<verze>.zip` (INSTALL.md, compose.yml, compose.demo.yml); „První kroky“ na prázdném Přehledu (ZM-010) |
 
 Struktura repozitáře:
 
@@ -246,10 +247,11 @@ Struktura repozitáře:
 pronajmy/                  # v LXC: /home/dev/pronajmy
 ├── CLAUDE.md
 ├── docs/ZADANI-PRONAJMY.md, docs/ZMENY.md, docs/NAPADY.md
-├── Dockerfile, compose.dev.yml, compose.yml, compose.demo.yml, README.md, INSTALL.md
+├── Dockerfile, compose.dev.yml, compose.yml, compose.demo.yml, compose.local.yml, compose.prod-local.yml
+├── README.md, INSTALL.md
 ├── .github/workflows/     # build a zveřejnění image v GHCR (ZM-010)
 ├── docker/                # entrypoint.sh, selftest.py, backup.sh, restore.sh, backup.Dockerfile, tailscale/serve.json
-├── scripts/               # check-image.sh, dev-from-prod.sh
+├── scripts/               # check-image.sh, dev-from-prod.sh, make-bundle.sh
 ├── manage.py, pyproject.toml, uv.lock
 ├── config/                # nastavení Django, urls
 ├── apps/

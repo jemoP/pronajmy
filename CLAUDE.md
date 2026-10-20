@@ -29,11 +29,15 @@ Python 3.12, uv, Django 5.2, PostgreSQL 16, Django šablony + HTMX + Tailwind CS
 - Zveřejnění image do GHCR: tag vX.Y.Z + push (GitHub Actions, amd64 + arm64) – jen na pokyn.
 
 ## Provoz (compose.yml, projekt pronajmy-prod)
-- Postup a obnova ze zálohy: README.md. Tajné údaje v .env.prod (není v gitu).
-- docker compose -f compose.yml up -d --build web                        # nasazení nové verze
-- docker compose -f compose.yml exec backup /bin/sh /backup.sh now       # ruční záloha (DB + přílohy)
-- docker compose -f compose.yml exec backup /bin/sh /restore.sh check /backups/<soubor>
-- docker compose -f compose.yml exec backup /bin/sh /restore.sh media-check /backups/media_<čas>.tar.enc
+- Postup a obnova ze zálohy: README.md, pro dalšího uživatele INSTALL.md. Tajné údaje v .env.prod (není v gitu; v LXC je .env vývojový).
+- Všechny příkazy provozu: docker compose --env-file .env.prod -f compose.yml [--profile tailscale] …
+- … pull && … up -d                                                      # nasazení nové verze (PRONAJMY_VERSION v .env.prod)
+- … -f compose.prod-local.yml up -d --build                              # provoz z místního kódu bez GHCR
+- … exec backup /bin/sh /backup.sh now                                   # ruční záloha (DB + přílohy)
+- … exec backup /bin/sh /restore.sh check /backups/db_<čas>.dump.enc
+- … exec backup /bin/sh /restore.sh media-check /backups/media_<čas>.tar.enc
+- scripts/dev-from-prod.sh                                               # vývojová DB a media/ z provozní zálohy
+- scripts/make-bundle.sh <verze>                                         # instalační balíček pro dalšího uživatele (dist/)
 - Provozní databázi, přílohy a zálohy měň jen na výslovný pokyn; testovací a kontrolní zásahy dělej ve vývoji. Nasazení jen na pokyn.
 
 ## Pravidla

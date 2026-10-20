@@ -3,6 +3,18 @@
 {% block content %}
 <h1 class="mb-4 text-2xl font-bold">Přehled pronájmů</h1>
 
+{% if first_steps %}
+<section class="card mb-6" aria-labelledby="first-steps">
+  <h2 id="first-steps" class="mb-2 text-xl font-semibold">První kroky</h2>
+  <p class="mb-3 text-sm text-slate-600">Výchozí účely a druhy revizí jsou připravené. Začni těmito kroky:</p>
+  <ol class="space-y-2">
+    {% for step in first_steps %}
+    <li>{% if step.done %}<span aria-hidden="true" style="color: var(--status-ok)">✓</span> {{ step.label }} <span class="text-sm text-slate-500">(hotovo)</span>{% else %}<span aria-hidden="true">○</span> <a class="link" href="{{ step.url }}">{{ step.label }}</a>{% endif %}</li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
 <section class="mb-6">
   <h2 class="mb-2 text-xl font-semibold">Upozornění{% if rental_alerts %} ({{ rental_alerts|length }}){% endif %}</h2>
   {% if rental_alerts %}

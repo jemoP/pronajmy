@@ -20,7 +20,7 @@ from django.views.decorators.http import require_POST
 from apps.core.formatting import czech_sort_key
 from apps.core.forms import first_errors
 from apps.core.web import opt_int
-from apps.money.models import Entry
+from apps.money.models import Account, Entry
 from apps.money.payable_forms import PayDuesForm
 from apps.money.services.accounts import account_choices, list_accounts
 from apps.money.services.entries import split_result_for
@@ -185,8 +185,33 @@ def overview(request: HttpRequest) -> HttpResponse:
             "total": sum(a.balance_cents for a in accounts),
             "split": split_result_for(date(today.year, 1, 1), date(today.year, 12, 31), today),
             "planned_count": Entry.objects.filter(date__gt=today).count(),
+            "first_steps": first_steps(),
         },
     )
+
+
+def first_steps() -> list[dict[str, Any]]:
+    """Karta „První kroky“ pro čistou instalaci (ZM-010); se smlouvou zmizí."""
+    if Lease.objects.exists():
+        return []
+    return [
+        {
+            "label": "Založ účet, na který chodí nájem",
+            "url": reverse("money:account_new"),
+            "done": Account.objects.exists(),
+        },
+        {
+            "label": "Přidej byt",
+            "url": reverse("rentals:property_new"),
+            "done": Property.objects.exists(),
+        },
+        {
+            "label": "Přidej nájemníka",
+            "url": reverse("rentals:tenant_new"),
+            "done": Tenant.objects.exists(),
+        },
+        {"label": "Zapiš nájemní smlouvu", "url": reverse("rentals:lease_new"), "done": False},
+    ]
 
 
 # --- Byty --------------------------------------------------------------------

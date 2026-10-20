@@ -55,6 +55,8 @@ def test_init_env_lan_http() -> None:
     assert values["DJANGO_HTTPS"] == "false"
     assert values["DJANGO_DEBUG"] == "False"
     assert values["PRONAJMY_ADMIN_USER"] == "spravce"
+    assert values["PRONAJMY_BIND"] == "0.0.0.0"
+    assert values["BACKUP_UID"] == "1000"
     for key in ("DJANGO_SECRET_KEY", "POSTGRES_PASSWORD", "PRONAJMY_ADMIN_PASSWORD"):
         assert len(values[key]) >= 16, key
     assert len(values["BACKUP_PASSPHRASE"]) >= 32
@@ -130,3 +132,11 @@ def test_prod_settings_https_by_default() -> None:
     assert settings["CSRF_COOKIE_SECURE"] is True
     assert settings["SECURE_SSL_REDIRECT"] is True
     assert settings["SECURE_HSTS_SECONDS"] == 60 * 60 * 24 * 30
+
+
+def test_init_env_version_from_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_VERSION", "1.2.3")
+    assert "PRONAJMY_VERSION=1.2.3\n" in init_env.render("http://192.168.1.50:8080")
+    # Místní build nemá číslo verze – výchozí latest.
+    monkeypatch.setenv("APP_VERSION", "místní")
+    assert "PRONAJMY_VERSION=latest\n" in init_env.render("http://192.168.1.50:8080")

@@ -1,4 +1,4 @@
-# Jen pro vývojáře: místo stažení z GHCR postaví provozní image z místního kódu (ZM-010).
+# Jen pro vývojáře: demo z místního kódu místo image z GHCR (ZM-010).
 #   docker compose -f compose.demo.yml -f compose.local.yml up -d --build
 services:
   web:
