@@ -28,7 +28,7 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
 
 ## ZM-010 – Distribuce: demo a provozní instalace u jiného uživatele
 - **Datum:** 2026-10-20
-- **Stav:** schváleno (2026-10-20)
+- **Stav:** hotovo
 - **Zadal:** Petr
 - **Důvod:** aplikaci má mít možnost nasadit i jiný člověk ve své lokální síti na vlastním Dockeru (Raspberry Pi) – nejdřív jako demo se smyšlenými daty, potom jako čistou provozní instalaci. Dosavadní řešení počítá jen s LXC autora (build ze zdrojů, jen amd64, provoz jen přes HTTPS / Tailscale).
 - **Popis:**
@@ -38,7 +38,7 @@ Každá změna zadání (`docs/ZADANI-PRONAJMY.md`) má vlastní záznam. Nejnov
   - **Provoz (rozšířená etapa 5):** jeden `compose.yml` pro autora i ostatní: `db`, `web`, `backup` (šifrovaná záloha DB a příloh), `tailscale` jako volitelný profil (`--profile tailscale`, provoz autora); bez profilu port v lokální síti po HTTP. Postup aktualizace (záloha → `pull` → `up -d`), na prázdném Přehledu „První kroky“. INSTALL.md pro cizího uživatele (požadavky, demo, provoz, aktualizace, zálohy a obnova, odinstalace, odpovědnost za osobní údaje nájemníků).
 - **Dotčené kapitoly:** ZADANI-PRONAJMY.md (Účel a rozsah, Funkční požadavky P16, P18, P19, Technologie a architektura, Etapy a akceptace).
 - **Dopad na data:** žádný (beze změny schématu); demo má vlastní databázi a volumes.
-- **Implementováno:** –
+- **Implementováno:** 2026-10-20 – etapa 5 image a distribuce (facd5d4), etapa 6 demo (0a0de13), etapa 7 provoz, zálohy a INSTALL.md (328b21c), vydání v1.0.0; oprava 1.0.1 (91f51b9: adresa v init-env, česká stránka 400), vydání v1.0.1. Ověřeno u dalšího uživatele na Raspberry Pi (demo i provoz 1.0.1). Provoz autora přes Tailscale (profil `tailscale`) zatím nespuštěn.
 
 ## ZM-009 – Hromadné mazání pohybů
 - **Datum:** 2026-10-19
