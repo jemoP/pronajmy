@@ -240,6 +240,10 @@ class _Builder:
             today=self.today,
         )
 
+    def month_total(self, lease: Lease, month: date) -> int:
+        """Předpis měsíce (nájem + zálohy) v Kč – po dodatku se mění."""
+        return sum(c.amount_cents for c in lease.charges.filter(period=month)) // 100
+
     def pay_deposit(self, lease: Lease) -> None:
         charge = lease.charges.get(kind=ChargeKind.DEPOSIT)
         pay_charges(
@@ -488,20 +492,33 @@ class _Builder:
             variable_symbol=f"{new_start.year}03",
             status=LeaseStatus.ACTIVE,
         )
+        # Po vyúčtování služeb vyšší zálohy.
+        effective = add_months(month_start(self.today), -4)
+        services = save_amendment(
+            LeaseAmendment(
+                lease=new,
+                number="1",
+                signed_date=effective - timedelta(days=15),
+                effective_date=effective,
+                description="Zvýšení záloh na služby po vyúčtování.",
+                services_cents=kc(4_600),
+            )
+        )
         ensure_charges(new, self.today)
         self.pay_deposit(new)
-        total = 19_500 + 4_200
         months = self.due_months(new)
         paid = months[:-2]  # poslední dva měsíce nezaplacené – dluh
+        partial = 15_000
         for index, month in enumerate(paid):
             due = new.charges.filter(period=month).first()
             assert due is not None
             day = max(self.day_before(due.due_date, 3), new.start_date)
-            amount = total
+            amount = self.month_total(new, month)
             if index == 4:
-                amount = 15_000  # částečná platba
+                amount = partial  # částečná platba
             elif index == 5:
-                amount = total + (total - 15_000)  # doplatek s dalším měsícem
+                # doplatek s dalším měsícem
+                amount += self.month_total(new, paid[4]) - partial
             record_payment(
                 new,
                 day=day,
@@ -516,13 +533,21 @@ class _Builder:
             "najemni-smlouva-vysluni.pdf",
             sample_pdf("Najemni smlouva - Na Vysluni 7"),
         )
+        attach(
+            "amendment",
+            services,
+            "dodatek-1-vysluni.pdf",
+            sample_pdf("Dodatek c. 1 - Na Vysluni 7"),
+        )
         self.lease_vysluni_obj = new
         self.lease_vysluni_old = old
         self.old_end = end
 
     def lease_zahradni(self) -> None:
-        """Smlouva na dobu určitou končící do 60 dní a návrh navazující smlouvy."""
+        """Smlouva na dobu určitou prodloužená dodatkem, končící do 60 dní, a návrh
+        navazující smlouvy."""
         start = add_months(month_start(self.today), -23)
+        first_end = add_months(start, 12) - timedelta(days=1)
         end = self.today + timedelta(days=45)
         lease = self.lease(
             self.zahradni,
@@ -531,13 +556,30 @@ class _Builder:
             number=f"{start.year}/04",
             signed_date=start - timedelta(days=7),
             start_date=start,
-            end_date=end,
+            end_date=first_end,
             rent_cents=kc(11_500),
             services_cents=kc(2_500),
             due_day=10,
             deposit_cents=kc(23_000),
             variable_symbol=f"{start.year}04",
             status=LeaseStatus.ACTIVE,
+        )
+        prolonged = save_amendment(
+            LeaseAmendment(
+                lease=lease,
+                number="1",
+                signed_date=first_end - timedelta(days=40),
+                effective_date=first_end - timedelta(days=30),
+                description="Prodloužení nájmu do "
+                f"{end.day}. {end.month}. {end.year}, ostatní podmínky beze změny.",
+                end_date=end,
+            )
+        )
+        attach(
+            "amendment",
+            prolonged,
+            "dodatek-1-zahradni.pdf",
+            sample_pdf("Dodatek c. 1 - Zahradni 3 - prodlouzeni"),
         )
         ensure_charges(lease, self.today)
         self.pay_deposit(lease)
@@ -547,7 +589,7 @@ class _Builder:
             record_payment(
                 lease,
                 day=max(self.day_before(due.due_date, 2), lease.start_date),
-                amount=kc(14_000),
+                amount=kc(self.month_total(lease, month)),
                 account_id=self.bank.pk,
                 note="Platba převodem",
                 today=self.today,

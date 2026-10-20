@@ -14,7 +14,7 @@ from django.urls import reverse
 
 from apps.money.models import Category, Entry, EntryKind, PayableDue
 from apps.rentals import demo
-from apps.rentals.models import Attachment, Lease, LeaseStatus, Property
+from apps.rentals.models import Attachment, Lease, LeaseAmendment, LeaseStatus, Property
 from apps.rentals.services.alerts import rental_alerts
 from apps.rentals.services.charges import lease_balance
 from apps.rentals.services.report import account_flows
@@ -73,14 +73,21 @@ def test_demo_data(seeded: None) -> None:
     assert Property.objects.count() == 4
     statuses = sorted(Lease.objects.values_list("status", flat=True))
     assert statuses == ["ACTIVE", "ACTIVE", "ACTIVE", "DRAFT", "ENDED"]
-    assert Attachment.objects.count() >= 5
+    assert Attachment.objects.count() >= 7
+    amendments = {
+        a.lease.property.name: a for a in LeaseAmendment.objects.select_related("lease__property")
+    }
+    assert amendments["Lipová 12"].rent_cents == 15_000 * 100
+    assert amendments["Na Výsluní 7"].services_cents == 4_600 * 100
+    assert amendments["Zahradní 3"].end_date == date(2026, 12, 4)
 
     # Dluh přesně dva měsíce u smlouvy se spolunájemcem, ostatní smlouvy bez dluhu.
     debts = {
         lease.property.name: lease_balance(lease, TODAY).overdue
         for lease in Lease.objects.exclude(status=LeaseStatus.DRAFT)
     }
-    assert debts["Na Výsluní 7"] == 2 * (19_500 + 4_200) * 100
+    # Od dodatku vyšší zálohy (4 600 Kč).
+    assert debts["Na Výsluní 7"] == 2 * (19_500 + 4_600) * 100
     ended = Lease.objects.get(status=LeaseStatus.ENDED)
     balance = lease_balance(ended, TODAY)
     assert balance.balance == 0 and balance.deposit.held == 0
